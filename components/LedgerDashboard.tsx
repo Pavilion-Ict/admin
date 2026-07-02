@@ -87,7 +87,7 @@ export default function LedgerDashboard({
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6 relative">
+    <div className="max-w-6xl mx-auto p-4 sm:p-6 relative">
       
       {showSummary && (
         <SummaryPanel 
@@ -98,7 +98,7 @@ export default function LedgerDashboard({
         />
       )}
 
-      <div className="flex justify-between items-end mb-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-6">
         <h1 className="text-3xl font-bold text-gray-800">{title} Sales Ledger</h1>
         <div className="flex gap-3">
           <button onClick={() => setShowSummary(true)} className="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-bold shadow-sm hover:bg-gray-50 flex items-center gap-2">
@@ -139,7 +139,7 @@ export default function LedgerDashboard({
       </div>
 
       {/* Filters & Search */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between">
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
         <div className="w-full md:w-1/3 relative">
           <svg className="w-5 h-5 absolute left-3 top-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <input 

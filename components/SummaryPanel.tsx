@@ -85,29 +85,29 @@ export default function SummaryPanel({
 
         <div className="p-6">
           {/* Controls */}
-          <div className="flex flex-wrap items-end gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100 mb-6">
-            <div>
+          <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-end gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100 mb-6">
+            <div className="w-full sm:w-auto">
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">From Date</label>
-              <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="block px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm" />
+              <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm" />
             </div>
-            <div>
+            <div className="w-full sm:w-auto">
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">To Date</label>
-              <input type="date" value={to} onChange={e => setTo(e.target.value)} className="block px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm" />
+              <input type="date" value={to} onChange={e => setTo(e.target.value)} className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm" />
             </div>
-            <div className="flex gap-2 ml-auto">
-              <button onClick={() => { setFrom(minDate); setTo(maxDate); }} className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50">All time</button>
-              <button onClick={() => { setFrom(TODAY); setTo(TODAY); }} className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50">Today</button>
-              <button onClick={handleExport} className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold shadow-sm hover:bg-primary-hover">⬇ Export PDF</button>
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto sm:ml-auto mt-2 sm:mt-0">
+              <button onClick={() => { setFrom(minDate); setTo(maxDate); }} className="flex-1 sm:flex-none px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50">All time</button>
+              <button onClick={() => { setFrom(TODAY); setTo(TODAY); }} className="flex-1 sm:flex-none px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50">Today</button>
+              <button onClick={handleExport} className="w-full sm:w-auto px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold shadow-sm hover:bg-primary-hover">⬇ Export PDF</button>
             </div>
           </div>
 
           {/* Totals Banner */}
-          <div className="flex rounded-xl overflow-hidden mb-8 border border-gray-100 shadow-sm">
-            <div className="flex-1 p-4 bg-white border-r border-gray-100">
+          <div className="flex flex-col md:flex-row rounded-xl overflow-hidden mb-8 border border-gray-100 shadow-sm divide-y md:divide-y-0 md:divide-x divide-gray-100">
+            <div className="flex-1 p-4 bg-white">
               <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Revenue</div>
               <div className="text-2xl font-bold text-primary">₦{totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
             </div>
-            <div className="flex-1 p-4 bg-white border-r border-gray-100">
+            <div className="flex-1 p-4 bg-white">
               <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Total COP</div>
               <div className="text-2xl font-bold text-brand-yellow">₦{totalCop.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
             </div>

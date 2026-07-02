@@ -16,9 +16,9 @@ export default async function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50/50 p-8 font-sans">
+    <div className="min-h-screen bg-gray-50/50 p-4 sm:p-8 font-sans">
       <div className="max-w-5xl mx-auto">
-        <div className="flex justify-between items-center mb-10 bg-white p-8 rounded-2xl shadow-sm border border-gray-100/50 backdrop-blur-xl">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-10 bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-gray-100/50 backdrop-blur-xl">
           <div className="flex items-center gap-4">
             <img 
               src="/icon.png" 
@@ -36,22 +36,22 @@ export default async function AdminPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Link href="/publishing" className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 group relative overflow-hidden">
+          <Link href="/publishing" className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 group relative overflow-hidden">
             <div className="absolute top-0 left-0 w-2 h-full bg-primary transform origin-bottom transition-transform duration-300 group-hover:scale-y-110"></div>
             <h2 className="text-2xl font-bold text-primary mb-2 group-hover:text-primary-hover transition-colors">Publishing Ledger &rarr;</h2>
             <p className="text-gray-500 font-medium">Manage the publishing service transactions.</p>
           </Link>
-          <Link href="/digital-prints" className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 group relative overflow-hidden">
+          <Link href="/digital-prints" className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 group relative overflow-hidden">
              <div className="absolute top-0 left-0 w-2 h-full bg-brand-blue-100 transform origin-bottom transition-transform duration-300 group-hover:scale-y-110"></div>
             <h2 className="text-2xl font-bold text-brand-blue-100 mb-2 group-hover:text-primary-hover transition-colors">Digital Prints Ledger &rarr;</h2>
             <p className="text-gray-500 font-medium">Manage digital prints service transactions.</p>
           </Link>
-          <Link href="/tech-services" className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 group relative overflow-hidden">
+          <Link href="/tech-services" className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 group relative overflow-hidden">
              <div className="absolute top-0 left-0 w-2 h-full bg-brand-blue-400 transform origin-bottom transition-transform duration-300 group-hover:scale-y-110"></div>
             <h2 className="text-2xl font-bold text-brand-blue-400 mb-2 group-hover:text-primary-hover transition-colors">Tech Services Ledger &rarr;</h2>
             <p className="text-gray-500 font-medium">Manage tech services transactions.</p>
           </Link>
-          <Link href="/ecafe" className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 group relative overflow-hidden">
+          <Link href="/ecafe" className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 group relative overflow-hidden">
              <div className="absolute top-0 left-0 w-2 h-full bg-accent transform origin-bottom transition-transform duration-300 group-hover:scale-y-110"></div>
             <h2 className="text-2xl font-bold text-accent mb-2 group-hover:text-accent transition-colors">eCafe Ledger &rarr;</h2>
             <p className="text-gray-500 font-medium">Manage eCafe service transactions.</p>
