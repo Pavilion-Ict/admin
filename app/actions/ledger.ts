@@ -13,7 +13,9 @@ export async function addLedgerEntry(tableName: string, data: {
   qty: number;
   price: number;
   paymentMethod: string;
+  balance: number;
   deliveryMethod: string;
+  note: string;
 }) {
   const session = await getServerSession(authOptions);
   
@@ -38,7 +40,9 @@ export async function addLedgerEntry(tableName: string, data: {
         qty: data.qty,
         price: data.price,
         payment_method: data.paymentMethod,
+        balance: data.balance,
         delivery_method: data.deliveryMethod,
+        note: data.note,
         created_by: session.user.id
       }
     ]);

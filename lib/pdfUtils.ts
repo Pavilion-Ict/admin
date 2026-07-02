@@ -70,9 +70,11 @@ export function generateReceipt(row: any, title: string) {
     ${qty && price ? `<div class="row"><span class="label">Unit Price</span><span class="value">₦${fmt(row.price)}</span></div>` : ""}
     <hr class="divider"/>
     <div class="total-row"><span>TOTAL</span><span>₦${fmt(price)}</span></div>
+    ${row.balance > 0 ? `<div class="row" style="margin-top:6px; color:#c07800;"><span class="label">Balance Due</span><span class="value">₦${fmt(row.balance)}</span></div>` : ""}
     <hr class="divider"/>
     <div class="row"><span class="label">Payment Mode</span><span class="value" style="text-transform: capitalize;">${row.payment_method}</span></div>
     <div class="row"><span class="label">Delivery</span><span class="value" style="text-transform: capitalize;">${row.delivery_method}</span></div>
+    ${row.note ? `<div class="row"><span class="label">Note</span><span class="value">${row.note}</span></div>` : ""}
     ${price ? `<div class="stamp"><span>RECEIVED</span></div>` : ""}
     <div class="footer">Thank you for your business!<br/>${BUSINESS_NAME} · ${fmtDate(new Date().toISOString())}</div>
   </div>
@@ -89,7 +91,9 @@ export function exportLedgerPDF({ filteredRows, totalRevenue, totalCop, copRows,
     <td class="right">${r.qty || "—"}</td>
     <td class="right">${r.price ? fmt(r.price) : "—"}</td>
     <td class="right" style="font-weight:bold;">${fmt(r.price * r.qty)}</td>
+    <td class="right">${r.balance ? fmt(r.balance) : "—"}</td>
     <td style="text-transform: capitalize;">${r.payment_method}</td><td style="text-transform: capitalize;">${r.delivery_method}</td>
+    <td>${r.note || "—"}</td>
   </tr>`).join("");
 
   const copHtml = copRows.map((r: any) => `<tr>
@@ -111,14 +115,14 @@ export function exportLedgerPDF({ filteredRows, totalRevenue, totalCop, copRows,
     </div>
     
     <h2 style="font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px;color:#333;">Sales Record</h2>
-    <table><thead><tr>
+    <table style="width:100%; border-collapse: collapse; margin-bottom: 24px;"><thead><tr>
       <th>Date</th><th>Client</th><th>Description</th><th class="right">Qty</th>
-      <th class="right">Unit Price</th><th class="right">Total</th><th>Payment</th><th>Delivery</th>
+      <th class="right">Unit Price</th><th class="right">Total</th><th class="right">Balance</th><th>Payment</th><th>Delivery</th><th>Note</th>
     </tr></thead><tbody>${rowsHtml}</tbody>
     <tfoot><tr class="tfoot">
       <td colspan="5">Total Revenue</td>
       <td class="right">₦${fmt(totalRevenue)}</td>
-      <td colspan="2"></td>
+      <td colspan="4"></td>
     </tr></tfoot></table>
     
     <div style="margin-top:20px;">
@@ -142,15 +146,23 @@ export function exportSummaryPDF({ byDate, inRange, totalRevenue, totalCop, netP
       <td class="right">${r.qty || "—"}</td>
       <td class="right">${r.price ? fmt(r.price) : "—"}</td>
       <td class="right" style="font-weight:bold;">${fmt(r.price * r.qty)}</td>
+      <td class="right">${r.balance ? fmt(r.balance) : "—"}</td>
       <td style="text-transform: capitalize;">${r.payment_method}</td><td style="text-transform: capitalize;">${r.delivery_method}</td>
+      <td>${r.note || "—"}</td>
     </tr>`).join("");
     return `<div style="margin-bottom:18px;page-break-inside:avoid;">
       <div style="background:#1a2535;color:#fff;padding:7px 10px;border-radius:4px 4px 0 0;display:flex;justify-content:space-between;">
         <b>${fmtDate(date)}</b>
         <span style="font-size:10px;">Revenue: ₦${fmt(rev)} · ${dRows.length} entries</span>
       </div>
-      <table><thead><tr><th>Client</th><th>Description</th><th class="right">Qty</th><th class="right">Price</th><th class="right">Total</th><th>Payment</th><th>Delivery</th></tr></thead>
-      <tbody>${rowsHtml}</tbody></table>
+      <table style="width:100%; border-collapse: collapse; margin-bottom: 24px;">
+      <thead>
+        <tr>
+          <th>Date</th><th>Client Name</th><th>Description</th><th class="right">Qty</th><th class="right">Price (₦)</th><th class="right">Total (₦)</th><th class="right">Balance (₦)</th><th>Payment Mode</th><th>Delivery</th><th>Note</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsHtml}</tbody></table>
     </div>`;
   }).join("");
 

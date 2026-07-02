@@ -9,8 +9,10 @@ export default function LedgerForm({ tableName }: { tableName: string }) {
   const [description, setDescription] = useState("");
   const [qty, setQty] = useState("1");
   const [price, setPrice] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("cash");
-  const [deliveryMethod, setDeliveryMethod] = useState("walk in");
+  const [balance, setBalance] = useState("0");
+  const [paymentMethod, setPaymentMethod] = useState("Transfer");
+  const [deliveryMethod, setDeliveryMethod] = useState("Pick Up");
+  const [note, setNote] = useState("");
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -27,8 +29,10 @@ export default function LedgerForm({ tableName }: { tableName: string }) {
         description,
         qty: parseInt(qty, 10),
         price: parseFloat(price),
+        balance: parseFloat(balance || "0"),
         paymentMethod,
         deliveryMethod,
+        note,
       });
       // Reset form
       setEntryDate(new Date().toISOString().split('T')[0]);
@@ -36,8 +40,10 @@ export default function LedgerForm({ tableName }: { tableName: string }) {
       setDescription("");
       setQty("1");
       setPrice("");
-      setPaymentMethod("cash");
-      setDeliveryMethod("walk in");
+      setBalance("0");
+      setPaymentMethod("Transfer");
+      setDeliveryMethod("Pick Up");
+      setNote("");
     } catch (err: any) {
       setError(err.message || "Something went wrong");
     } finally {
@@ -82,8 +88,8 @@ export default function LedgerForm({ tableName }: { tableName: string }) {
           />
         </div>
 
-        <div className="flex gap-4">
-          <div className="w-1/3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Qty</label>
             <input
               type="number"
@@ -94,7 +100,7 @@ export default function LedgerForm({ tableName }: { tableName: string }) {
               onChange={(e) => setQty(e.target.value)}
             />
           </div>
-          <div className="w-2/3">
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
             <input
               type="number"
@@ -106,6 +112,18 @@ export default function LedgerForm({ tableName }: { tableName: string }) {
               onChange={(e) => setPrice(e.target.value)}
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Balance</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              required
+              className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900"
+              value={balance}
+              onChange={(e) => setBalance(e.target.value)}
+            />
+          </div>
         </div>
 
         <div>
@@ -115,10 +133,11 @@ export default function LedgerForm({ tableName }: { tableName: string }) {
             value={paymentMethod}
             onChange={(e) => setPaymentMethod(e.target.value)}
           >
-            <option value="cash">Cash</option>
-            <option value="pos">POS</option>
-            <option value="cheque">Cheque</option>
-            <option value="credit">Credit</option>
+            <option value="Transfer">Transfer</option>
+            <option value="Cash">Cash</option>
+            <option value="POS">POS</option>
+            <option value="Cheque">Cheque</option>
+            <option value="Credit">Credit</option>
           </select>
         </div>
 
@@ -129,10 +148,22 @@ export default function LedgerForm({ tableName }: { tableName: string }) {
             value={deliveryMethod}
             onChange={(e) => setDeliveryMethod(e.target.value)}
           >
-            <option value="walk in">Walk In</option>
-            <option value="pickup">Pickup</option>
-            <option value="dispatch">Dispatch</option>
+            <option value="Pick Up">Pick Up</option>
+            <option value="Dispatch">Dispatch</option>
+            <option value="Express Delivery">Express Delivery</option>
+            <option value="Evening Delivery">Evening Delivery</option>
+            <option value="Walk-In">Walk-In</option>
           </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Note (Optional)</label>
+          <input
+            type="text"
+            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
         </div>
       </div>
 

@@ -57,9 +57,11 @@ export default function LedgerDashboard({
           ${entry.description} 
           ${entry.payment_method} 
           ${entry.delivery_method} 
+          ${entry.note || ''}
           ${entry.users?.username || ''}
           ${entry.qty}
           ${entry.price}
+          ${entry.balance || ''}
           ${entry.entry_date || ''}
           ${new Date(entry.created_at).toLocaleDateString()}
         `.toLowerCase();
@@ -149,19 +151,22 @@ export default function LedgerDashboard({
           />
         </div>
         
-        <div className="flex gap-4 w-full md:w-auto">
+        <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
           <select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)} className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary text-gray-700 bg-gray-50">
             <option value="all">All Payments</option>
-            <option value="cash">Cash</option>
-            <option value="pos">POS</option>
-            <option value="cheque">Cheque</option>
-            <option value="credit">Credit</option>
+            <option value="Transfer">Transfer</option>
+            <option value="Cash">Cash</option>
+            <option value="POS">POS</option>
+            <option value="Cheque">Cheque</option>
+            <option value="Credit">Credit</option>
           </select>
           <select value={deliveryFilter} onChange={(e) => setDeliveryFilter(e.target.value)} className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary text-gray-700 bg-gray-50">
             <option value="all">All Deliveries</option>
-            <option value="walk in">Walk In</option>
-            <option value="pickup">Pickup</option>
-            <option value="dispatch">Dispatch</option>
+            <option value="Pick Up">Pick Up</option>
+            <option value="Dispatch">Dispatch</option>
+            <option value="Express Delivery">Express Delivery</option>
+            <option value="Evening Delivery">Evening Delivery</option>
+            <option value="Walk-In">Walk-In</option>
           </select>
         </div>
       </div>
@@ -177,12 +182,14 @@ export default function LedgerDashboard({
               <tr>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Date</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Client Name</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Service Description</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Description</th>
                 <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Qty</th>
                 <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Price</th>
                 <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Total</th>
+                <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Balance</th>
                 <th className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Payment</th>
                 <th className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Delivery</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Note</th>
                 <th className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
@@ -201,23 +208,29 @@ export default function LedgerDashboard({
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm font-medium text-gray-900">{entry.client_name}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{entry.description}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600 max-w-[200px] truncate">{entry.description}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">{entry.qty}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">₦{Number(entry.price).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900">₦{total.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-500">₦{Number(entry.balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
                         <span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full 
-                          ${entry.payment_method === 'credit' ? 'bg-[#FFF9E5] text-[#FFCC29]' : 
-                            entry.payment_method === 'cash' ? 'bg-[#E5F5FC] text-[#0098DA]' : 
-                            entry.payment_method === 'pos' ? 'bg-[#EAEAF4] text-[#3E4095]' : 'bg-[#FDEBF2] text-[#ED3883]'}`}>
+                          ${entry.payment_method === 'Credit' ? 'bg-[#FFF9E5] text-[#FFCC29]' : 
+                            entry.payment_method === 'Cash' ? 'bg-[#E5F5FC] text-[#0098DA]' : 
+                            entry.payment_method === 'POS' ? 'bg-[#EAEAF4] text-[#3E4095]' : 
+                            entry.payment_method === 'Transfer' ? 'bg-green-100 text-green-700' : 
+                            'bg-[#FDEBF2] text-[#ED3883]'}`}>
                           {entry.payment_method.toUpperCase()}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500 capitalize">
                         {entry.delivery_method}
                       </td>
+                      <td className="px-6 py-4 text-sm text-gray-500 max-w-[150px] truncate" title={entry.note}>
+                        {entry.note || '-'}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                        <button onClick={() => generateReceipt(entry, title)} className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs font-bold shadow-sm hover:bg-green-200">
+                        <button onClick={() => generateReceipt(entry, title)} className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-bold shadow-sm hover:bg-gray-200">
                           🧾 Receipt
                         </button>
                       </td>
