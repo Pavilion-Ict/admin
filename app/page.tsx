@@ -3,6 +3,7 @@ import { authOptions } from "./api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
 import SignOutButton from "@/components/SignOutButton";
 import Link from "next/link";
+import Image from "next/image";
 
 export default async function AdminPage() {
   const session = await getServerSession(authOptions);
@@ -19,9 +20,18 @@ export default async function AdminPage() {
     <div className="min-h-screen bg-gray-50/50 p-8 font-sans">
       <div className="max-w-5xl mx-auto">
         <div className="flex justify-between items-center mb-10 bg-white p-8 rounded-2xl shadow-sm border border-gray-100/50 backdrop-blur-xl">
-          <div>
-            <h1 className="text-3xl font-bold text-primary tracking-tight">Super Admin Dashboard</h1>
-            <p className="text-gray-500 mt-2 font-medium">Welcome back, {session.user.name}</p>
+          <div className="flex items-center gap-4">
+            <Image 
+              src="/icon.png" 
+              alt="Pavilion Icon" 
+              width={40} 
+              height={40} 
+              className="object-contain"
+            />
+            <div>
+              <h1 className="text-3xl font-bold text-primary tracking-tight">Admin Dashboard</h1>
+              <p className="text-gray-500 mt-1 font-medium">Welcome back, {session.user.name}</p>
+            </div>
           </div>
           <SignOutButton />
         </div>
