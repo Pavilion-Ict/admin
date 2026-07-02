@@ -2,7 +2,6 @@ import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import { authOptions } from "../api/auth/[...nextauth]/route";
 import LoginForm from "./LoginForm";
-import Image from "next/image";
 
 export default async function LoginPage() {
   const session = await getServerSession(authOptions);
@@ -27,8 +26,8 @@ export default async function LoginPage() {
       <div className="p-10 bg-white rounded-3xl shadow-xl border border-gray-100 w-[420px] backdrop-blur-xl">
         <div className="mb-8 text-center">
           <div className="mx-auto flex items-center justify-center mb-4">
-            <Image 
-              src="/logo.svg" 
+            <img 
+              src="/logo.png" 
               alt="Pavilion Logo" 
               width={200} 
               height={60} 

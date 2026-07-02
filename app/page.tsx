@@ -3,7 +3,6 @@ import { authOptions } from "./api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
 import SignOutButton from "@/components/SignOutButton";
 import Link from "next/link";
-import Image from "next/image";
 
 export default async function AdminPage() {
   const session = await getServerSession(authOptions);
@@ -21,7 +20,7 @@ export default async function AdminPage() {
       <div className="max-w-5xl mx-auto">
         <div className="flex justify-between items-center mb-10 bg-white p-8 rounded-2xl shadow-sm border border-gray-100/50 backdrop-blur-xl">
           <div className="flex items-center gap-4">
-            <Image 
+            <img 
               src="/icon.png" 
               alt="Pavilion Icon" 
               width={40} 
