@@ -16,6 +16,8 @@ type Entry = {
   price: number;
   payment_method: string;
   delivery_method: string;
+  balance?: number;
+  note?: string;
   users: { username: string } | null;
 };
 
