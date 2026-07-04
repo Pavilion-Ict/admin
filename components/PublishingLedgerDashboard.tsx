@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import SummaryPanel from "./SummaryPanel";
 import { generateReceipt, exportPublishingPDF } from "@/lib/pdfUtils";
-import { updateCatalogue, saveStockLog } from "@/app/actions/publishing";
+import { updateCatalogue, saveStockLog, verifyCopPin } from "@/app/actions/publishing";
 import { addLedgerEntry, updateLedgerEntry, deleteLedgerEntry } from "@/app/actions/ledger";
 
 const getLocalDate = () => {
@@ -176,11 +176,12 @@ export default function PublishingLedgerDashboard({
     }
   };
 
-  const unlockCatalogue = (e: React.FormEvent) => {
+  const unlockCatalogue = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (catPin === "1234") {
+    setCatError("");
+    const isValid = await verifyCopPin(catPin);
+    if (isValid) {
       setCatUnlocked(true);
-      setCatError("");
     } else {
       setCatError("Incorrect PIN");
     }

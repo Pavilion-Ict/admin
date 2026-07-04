@@ -19,6 +19,12 @@ type StockLog = {
   closing_stock: string | null;
 };
 
+export async function verifyCopPin(pin: string): Promise<boolean> {
+  const secret = process.env.COP_SECRET_PIN;
+  if (!secret) return false;
+  return pin === secret;
+}
+
 export async function getCatalogue() {
   const { data, error } = await supabase.from("publishing_catalogue").select("*").order("service_name");
   
