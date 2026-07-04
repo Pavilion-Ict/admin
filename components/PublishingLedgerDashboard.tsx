@@ -209,8 +209,8 @@ export default function PublishingLedgerDashboard({
       {/* Modals */}
       {showSummary && (
         <SummaryPanel 
-          entries={initialRows} 
-          copEntries={[]} 
+          rows={initialRows} 
+          copRows={[]} 
           onClose={() => setShowSummary(false)} 
           title={title}
         />
