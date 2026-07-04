@@ -54,7 +54,7 @@ export default function LedgerForm({ tableName }: { tableName: string }) {
   return (
     <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
       <h3 className="text-lg font-semibold text-gray-800 mb-4">Add New Record</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
           <input
@@ -77,7 +77,7 @@ export default function LedgerForm({ tableName }: { tableName: string }) {
           />
         </div>
         
-        <div>
+        <div className="sm:col-span-2 lg:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-1">Service Description</label>
           <input
             type="text"
@@ -88,42 +88,42 @@ export default function LedgerForm({ tableName }: { tableName: string }) {
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Qty</label>
-            <input
-              type="number"
-              min="1"
-              required
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900"
-              value={qty}
-              onChange={(e) => setQty(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              required
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Balance</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              required
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900"
-              value={balance}
-              onChange={(e) => setBalance(e.target.value)}
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Qty</label>
+          <input
+            type="number"
+            min="1"
+            required
+            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900"
+            value={qty}
+            onChange={(e) => setQty(e.target.value)}
+          />
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Price (₦)</label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            required
+            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900"
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+          />
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Balance (₦)</label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            required
+            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900"
+            value={balance}
+            onChange={(e) => setBalance(e.target.value)}
+          />
         </div>
 
         <div>

@@ -138,6 +138,49 @@ export function exportLedgerPDF({ filteredRows, totalRevenue, totalCop, copRows,
   openPrintWindow(html);
 }
 
+export function exportPublishingPDF({ filteredRows, catalogue, totalRevenue, totalCop, totalExpenses, filterDate, title }: any) {
+  const netProfit = totalRevenue - totalCop - totalExpenses;
+  const rowsHtml = filteredRows.map((r: any) => {
+    const unitCop = (catalogue[r.description] || { cop: 0 }).cop;
+    const tcp = unitCop * (Number(r.qty) || 0);
+    return `<tr>
+      <td>${fmtDate(r.entry_date || r.created_at)}</td><td>${r.client_name || "—"}</td><td>${r.description || "—"}</td>
+      <td class="right">${r.qty || "—"}</td>
+      <td class="right font-monospace amber">₦${fmt(tcp)}</td>
+      <td class="right">₦${r.price ? fmt(r.price) : "—"}</td>
+      <td class="right amber">₦${r.expenses ? fmt(r.expenses) : "0.00"}</td>
+      <td class="right">${r.balance ? fmt(r.balance) : "—"}</td>
+      <td style="text-transform: capitalize;">${r.payment_method}</td><td style="text-transform: capitalize;">${r.delivery_method}</td>
+      <td>${r.note || "—"}</td>
+    </tr>`;
+  }).join("");
+
+  const today = new Date().toISOString().slice(0, 10);
+  
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${BUSINESS_NAME} — ${title} Ledger</title>
+  <style>${PDF_BASE_STYLES}</style></head><body>
+    <div class="biz-header"><h1>${BUSINESS_NAME}</h1><div class="biz-sub">${title} Services — Sales Ledger</div></div>
+    <div class="meta">Exported: ${new Date().toLocaleString("en-GB")} &nbsp;|&nbsp; Entries: ${filteredRows.length}${filterDate ? ` &nbsp;|&nbsp; Date: ${fmtDate(filterDate)}` : ""}</div>
+    <div class="summary-grid">
+      <div class="sum-card"><div class="lbl">Revenue</div><div class="val">₦${fmt(totalRevenue)}</div></div>
+      <div class="sum-card"><div class="lbl">Total COP</div><div class="val amber">₦${fmt(totalCop)}</div></div>
+      <div class="sum-card"><div class="lbl">Expenses</div><div class="val amber">₦${fmt(totalExpenses)}</div></div>
+      <div class="sum-card"><div class="lbl">Net Profit</div><div class="val ${netProfit >= 0 ? "green" : "red"}">₦${fmt(netProfit)}</div></div>
+    </div>
+    
+    <h2 style="font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px;color:#333;">Publishing Records</h2>
+    <table style="width:100%; border-collapse: collapse; margin-bottom: 24px;"><thead><tr>
+      <th>Date</th><th>Client</th><th>Service</th><th class="right">Qty</th>
+      <th class="right amber">Total COP</th><th class="right">Price</th><th class="right amber">Expenses</th><th class="right">Balance</th><th>Payment</th><th>Delivery</th><th>Note</th>
+    </tr></thead><tbody>${rowsHtml}</tbody>
+    </table>
+    
+    <script>window.onload=()=>window.print()</script>
+  </body></html>`;
+
+  openPrintWindow(html);
+}
+
 export function exportSummaryPDF({ byDate, inRange, totalRevenue, totalCop, netProfit, copRows, from, to, title }: any) {
   const dayBlocks = byDate.map(([date, dRows]: any) => {
     const rev = dRows.reduce((s: any, r: any) => s + (fmtN(r.price) * fmtN(r.qty)), 0);

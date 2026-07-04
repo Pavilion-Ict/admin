@@ -6,17 +6,87 @@ import { supabase } from "@/lib/supabase";
 import { revalidatePath } from "next/cache";
 
 // ── SALES LEDGER ACTIONS ──────────────────────────────────────────────────────
-export async function addLedgerEntry(tableName: string, data: {
-  entryDate: string;
-  clientName: string;
-  description: string;
-  qty: number;
-  price: number;
-  paymentMethod: string;
-  balance: number;
-  deliveryMethod: string;
-  note: string;
-}) {
+export async function addLedgerEntry(tableName: string, data: any) {
+  const session = await getServerSession(authOptions);
+  
+  if (!session || !session.user) {
+    throw new Error("Unauthorized");
+  }
+
+  const role = session.user.role;
+  const allowedTable = `${role}_ledger`;
+  
+  if (role !== "super_admin" && tableName !== allowedTable) {
+    throw new Error("Forbidden");
+  }
+
+  const mappedData = {
+    entry_date: data.entryDate || data.entry_date,
+    client_name: data.clientName || data.client_name,
+    description: data.description,
+    qty: data.qty,
+    price: data.price,
+    balance: data.balance,
+    payment_method: data.paymentMethod || data.payment_method,
+    delivery_method: data.deliveryMethod || data.delivery_method,
+    created_by: session.user.id,
+    ...(data.expenses !== undefined && { expenses: data.expenses }),
+    ...(data.note !== undefined && { note: data.note }),
+  };
+
+  const { error } = await supabase
+    .from(tableName)
+    .insert([mappedData]);
+
+  if (error) {
+    console.error("Supabase insert error:", error);
+    throw new Error("Failed to add entry");
+  }
+
+  revalidatePath(`/${tableName.replace('_ledger', '').replace('_', '-')}`);
+}
+
+export async function updateLedgerEntry(tableName: string, id: string, data: any) {
+  const session = await getServerSession(authOptions);
+  
+  if (!session || !session.user) {
+    throw new Error("Unauthorized");
+  }
+
+  const role = session.user.role;
+  const allowedTable = `${role}_ledger`;
+  
+  if (role !== "super_admin" && tableName !== allowedTable) {
+    throw new Error("Forbidden");
+  }
+
+  const mappedData = {
+    ...(data.entryDate && { entry_date: data.entryDate }),
+    ...(data.clientName && { client_name: data.clientName }),
+    ...(data.description && { description: data.description }),
+    ...(data.qty !== undefined && { qty: data.qty }),
+    ...(data.price !== undefined && { price: data.price }),
+    ...(data.balance !== undefined && { balance: data.balance }),
+    ...(data.expenses !== undefined && { expenses: data.expenses }),
+    ...(data.paymentMethod && { payment_method: data.paymentMethod }),
+    ...(data.deliveryMethod && { delivery_method: data.deliveryMethod }),
+    ...(data.note !== undefined && { note: data.note }),
+  };
+
+  const { error } = await supabase
+    .from(tableName)
+    .update(mappedData)
+    .eq('id', id);
+
+  if (error) {
+    console.error("Supabase update error:", error);
+    throw new Error("Failed to update entry");
+  }
+
+  revalidatePath(`/${tableName.replace('_ledger', '').replace('_', '-')}`);
+}
+
+export async function deleteLedgerEntry(tableName: string, id: string) {
   const session = await getServerSession(authOptions);
   
   if (!session || !session.user) {
@@ -32,24 +102,12 @@ export async function addLedgerEntry(tableName: string, data: {
 
   const { error } = await supabase
     .from(tableName)
-    .insert([
-      {
-        entry_date: data.entryDate,
-        client_name: data.clientName,
-        description: data.description,
-        qty: data.qty,
-        price: data.price,
-        payment_method: data.paymentMethod,
-        balance: data.balance,
-        delivery_method: data.deliveryMethod,
-        note: data.note,
-        created_by: session.user.id
-      }
-    ]);
+    .delete()
+    .eq('id', id);
 
   if (error) {
-    console.error("Supabase insert error:", error);
-    throw new Error("Failed to add entry");
+    console.error("Supabase delete error:", error);
+    throw new Error("Failed to delete entry");
   }
 
   revalidatePath(`/${tableName.replace('_ledger', '').replace('_', '-')}`);
@@ -69,10 +127,6 @@ export async function addCopEntry(tableName: string, data: {
   }
 
   const role = session.user.role;
-  const expectedCopTable = `${tableName}_cop`; // e.g. if tableName is publishing_ledger -> publishing_ledger_cop? No. 
-  // Let's pass the base name to this function, or infer the cop table name.
-  // Actually, we pass tableName as "publishing_ledger" so we need to replace "_ledger" with "_cop"
-  
   const copTableName = tableName.replace('_ledger', '_cop');
   const allowedTable = `${role}_cop`;
 
@@ -95,6 +149,34 @@ export async function addCopEntry(tableName: string, data: {
   if (error) {
     console.error("Supabase insert COP error:", error);
     throw new Error("Failed to add COP entry");
+  }
+
+  revalidatePath(`/${tableName.replace('_ledger', '').replace('_', '-')}`);
+}
+
+export async function deleteCopEntry(tableName: string, id: string) {
+  const session = await getServerSession(authOptions);
+  
+  if (!session || !session.user) {
+    throw new Error("Unauthorized");
+  }
+
+  const role = session.user.role;
+  const copTableName = tableName.replace('_ledger', '_cop');
+  const allowedTable = `${role}_cop`;
+  
+  if (role !== "super_admin" && copTableName !== allowedTable) {
+    throw new Error("Forbidden");
+  }
+
+  const { error } = await supabase
+    .from(copTableName)
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error("Supabase delete COP error:", error);
+    throw new Error("Failed to delete COP entry");
   }
 
   revalidatePath(`/${tableName.replace('_ledger', '').replace('_', '-')}`);

@@ -5,6 +5,7 @@ import LedgerForm from "./LedgerForm";
 import CopForm from "./CopForm";
 import SummaryPanel from "./SummaryPanel";
 import { generateReceipt, exportLedgerPDF } from "@/lib/pdfUtils";
+import { deleteLedgerEntry, deleteCopEntry } from "@/app/actions/ledger";
 
 type Entry = {
   id: string;
@@ -31,6 +32,14 @@ type CopEntry = {
   users: { username: string } | null;
 };
 
+const getLocalDate = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function LedgerDashboard({ 
   tableName, 
   title, 
@@ -43,14 +52,39 @@ export default function LedgerDashboard({
   initialCopEntries: CopEntry[];
 }) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [dateFilter, setDateFilter] = useState(getLocalDate());
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [deliveryFilter, setDeliveryFilter] = useState("all");
   const [showSummary, setShowSummary] = useState(false);
+  const [entryToDelete, setEntryToDelete] = useState<string | null>(null);
+  const [copEntryToDelete, setCopEntryToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const todayStr = getLocalDate();
+
+  const handlePrevDay = () => {
+    if (!dateFilter) return;
+    const d = new Date(dateFilter);
+    d.setDate(d.getDate() - 1);
+    setDateFilter(d.toISOString().split('T')[0]);
+  };
+
+  const handleNextDay = () => {
+    if (!dateFilter) return;
+    const d = new Date(dateFilter);
+    d.setDate(d.getDate() + 1);
+    setDateFilter(d.toISOString().split('T')[0]);
+  };
 
   const filteredEntries = useMemo(() => {
     return initialEntries.filter((entry) => {
       if (paymentFilter !== "all" && entry.payment_method !== paymentFilter) return false;
       if (deliveryFilter !== "all" && entry.delivery_method !== deliveryFilter) return false;
+
+      if (dateFilter) {
+        const entryDate = (entry.entry_date ? new Date(entry.entry_date) : new Date(entry.created_at)).toISOString().split('T')[0];
+        if (entryDate !== dateFilter) return false;
+      }
 
       if (searchQuery.trim() !== "") {
         const query = searchQuery.toLowerCase();
@@ -72,10 +106,20 @@ export default function LedgerDashboard({
       }
       return true;
     });
-  }, [initialEntries, searchQuery, paymentFilter, deliveryFilter]);
+  }, [initialEntries, searchQuery, paymentFilter, deliveryFilter, dateFilter]);
+
+  const filteredCopEntries = useMemo(() => {
+    return initialCopEntries.filter((entry) => {
+      if (dateFilter) {
+        const entryDate = (entry.entry_date ? new Date(entry.entry_date) : new Date(entry.created_at)).toISOString().split('T')[0];
+        if (entryDate !== dateFilter) return false;
+      }
+      return true;
+    });
+  }, [initialCopEntries, dateFilter]);
 
   const totalRevenue = filteredEntries.reduce((sum, e) => sum + (Number(e.qty) * Number(e.price)), 0);
-  const totalCop = initialCopEntries.reduce((sum, e) => sum + Number(e.amount), 0);
+  const totalCop = filteredCopEntries.reduce((sum, e) => sum + Number(e.amount), 0);
   const netProfit = totalRevenue - totalCop;
 
   const handleExportPDF = () => {
@@ -83,7 +127,8 @@ export default function LedgerDashboard({
       filteredRows: filteredEntries,
       totalRevenue,
       totalCop,
-      copRows: initialCopEntries,
+      copRows: filteredCopEntries,
+      filterDate: dateFilter,
       title
     });
   };
@@ -91,6 +136,7 @@ export default function LedgerDashboard({
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-6 relative">
       
+      {/* Modals */}
       {showSummary && (
         <SummaryPanel 
           rows={initialEntries} 
@@ -100,13 +146,108 @@ export default function LedgerDashboard({
         />
       )}
 
+      {(entryToDelete || copEntryToDelete) && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+                🗑️
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Delete Entry?</h3>
+              <p className="text-sm text-gray-500 mb-6">
+                Are you sure you want to permanently delete this record? This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button 
+                  disabled={isDeleting}
+                  onClick={() => {
+                    setEntryToDelete(null);
+                    setCopEntryToDelete(null);
+                  }}
+                  className="flex-1 py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  disabled={isDeleting}
+                  onClick={async () => {
+                    setIsDeleting(true);
+                    try {
+                      if (entryToDelete) await deleteLedgerEntry(tableName, entryToDelete);
+                      if (copEntryToDelete) await deleteCopEntry(tableName, copEntryToDelete);
+                      setEntryToDelete(null);
+                      setCopEntryToDelete(null);
+                    } catch (e) {
+                      alert("Failed to delete entry");
+                    } finally {
+                      setIsDeleting(false);
+                    }
+                  }}
+                  className="flex-1 py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50"
+                >
+                  {isDeleting ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-6">
         <h1 className="text-3xl font-bold text-gray-800">{title} Sales Ledger</h1>
-        <div className="flex gap-3">
-          <button onClick={() => setShowSummary(true)} className="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-bold shadow-sm hover:bg-gray-50 flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          
+          <div className="flex items-center bg-white border border-gray-200 rounded-xl shadow-sm h-full min-h-[44px] overflow-hidden">
+            <button 
+              onClick={handlePrevDay}
+              disabled={!dateFilter}
+              className="px-3 sm:px-4 py-2 hover:bg-gray-50 border-r border-gray-200 text-gray-500 disabled:opacity-30 disabled:hover:bg-white transition-colors"
+              title="Previous Day"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <div className="flex items-center px-3 gap-2">
+              <svg className="w-5 h-5 text-gray-400 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+              
+              {dateFilter !== todayStr && (
+                <button 
+                  onClick={() => setDateFilter(todayStr)}
+                  className="text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1 rounded-md transition-colors"
+                >
+                  Today
+                </button>
+              )}
+
+              <input 
+                type="date" 
+                value={dateFilter} 
+                onChange={(e) => setDateFilter(e.target.value)} 
+                className="bg-transparent border-none text-sm font-bold focus:ring-0 text-gray-800 outline-none w-auto max-w-[135px] p-0"
+              />
+              {dateFilter && (
+                <button 
+                  onClick={() => setDateFilter('')} 
+                  className="text-gray-400 hover:text-red-500 font-bold px-1 text-lg leading-none transition-colors"
+                  title="View All Dates"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+            <button 
+              onClick={handleNextDay}
+              disabled={!dateFilter || dateFilter === todayStr}
+              className="px-3 sm:px-4 py-2 hover:bg-gray-50 border-l border-gray-200 text-gray-500 disabled:opacity-30 disabled:hover:bg-white transition-colors"
+              title="Next Day"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
+            </button>
+          </div>
+
+          <button onClick={() => setShowSummary(true)} className="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-bold shadow-sm hover:bg-gray-50 flex items-center gap-2 h-full min-h-[44px] transition-colors">
             <span>📊</span> Summary
           </button>
-          <button onClick={handleExportPDF} className="px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-sm hover:bg-primary-hover flex items-center gap-2">
+          <button onClick={handleExportPDF} className="px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-sm hover:bg-primary-hover flex items-center gap-2 h-full min-h-[44px]">
             <span>⬇</span> Export PDF
           </button>
         </div>
@@ -232,9 +373,17 @@ export default function LedgerDashboard({
                         {entry.note || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                        <button onClick={() => generateReceipt(entry, title)} className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-bold shadow-sm hover:bg-gray-200">
-                          🧾 Receipt
-                        </button>
+                        <div className="flex justify-center gap-2">
+                          <button onClick={() => generateReceipt(entry, title)} className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-bold shadow-sm hover:bg-gray-200">
+                            🧾 Receipt
+                          </button>
+                          <button 
+                            onClick={() => setEntryToDelete(entry.id)} 
+                            className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold shadow-sm hover:bg-red-100"
+                          >
+                            🗑️ Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -265,11 +414,12 @@ export default function LedgerDashboard({
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Note</th>
                 <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Amount (₦)</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Admin</th>
+                <th className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {initialCopEntries.length > 0 ? (
-                initialCopEntries.map((entry) => (
+              {filteredCopEntries.length > 0 ? (
+                filteredCopEntries.map((entry) => (
                   <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <span className="font-bold text-gray-900 block">
@@ -283,6 +433,14 @@ export default function LedgerDashboard({
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
                       {entry.users?.username || 'Unknown'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                      <button 
+                        onClick={() => setCopEntryToDelete(entry.id)} 
+                        className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold shadow-sm hover:bg-red-100"
+                      >
+                        🗑️ Delete
+                      </button>
                     </td>
                   </tr>
                 ))
