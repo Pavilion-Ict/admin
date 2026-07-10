@@ -232,7 +232,11 @@ export default function PublishingLedgerDashboard({
       {showSummary && (
         <SummaryPanel 
           rows={initialRows} 
-          copRows={[]} 
+          copRows={initialRows.map((r: any) => ({
+            amount: (catalogue[r.description]?.cop || 0) * Number(r.qty || 0),
+            created_at: r.created_at,
+            entry_date: r.entry_date
+          }))} 
           onClose={() => setShowSummary(false)} 
           title={title}
         />

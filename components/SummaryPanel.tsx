@@ -16,8 +16,10 @@ export default function SummaryPanel({
 }) {
   const TODAY = new Date().toISOString().split('T')[0];
   
-  // Use entry_date or created_at
-  const allDates = rows.map(r => r.entry_date || r.created_at.split('T')[0]).filter(Boolean).sort();
+  const allDates = [
+    ...rows.map(r => r.entry_date || r.created_at.split('T')[0]),
+    ...copRows.map(r => r.entry_date || r.created_at.split('T')[0])
+  ].filter(Boolean).sort();
   const minDate = allDates[0] || TODAY;
   const maxDate = allDates[allDates.length - 1] || TODAY;
   
@@ -54,7 +56,8 @@ export default function SummaryPanel({
       : s + (Number(r.qty) * Number(r.price));
   }, 0);
   const totalCop = copInRange.reduce((s, r) => s + Number(r.amount), 0);
-  const netProfit = totalRevenue - totalCop;
+  const totalExpenses = inRange.reduce((s, r) => s + Number(r.expenses || 0), 0);
+  const netProfit = totalRevenue - totalCop - totalExpenses;
 
   const handleExport = () => {
     exportSummaryPDF({
@@ -62,6 +65,7 @@ export default function SummaryPanel({
       inRange,
       totalRevenue,
       totalCop,
+      totalExpenses,
       netProfit,
       copRows: copInRange,
       from,
@@ -115,7 +119,13 @@ export default function SummaryPanel({
               <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Total COP</div>
               <div className="text-2xl font-bold text-brand-yellow">₦{totalCop.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
             </div>
-            <div className="flex-1 p-4 bg-gray-50">
+            {totalExpenses > 0 && (
+              <div className="flex-1 p-4 bg-white border-l border-gray-100">
+                <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Expenses</div>
+                <div className="text-2xl font-bold text-orange-500">₦{totalExpenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+              </div>
+            )}
+            <div className="flex-1 p-4 bg-gray-50 border-l border-gray-100">
               <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Net Profit</div>
               <div className={`text-2xl font-bold ${netProfit >= 0 ? "text-green-600" : "text-red-600"}`}>₦{netProfit.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
             </div>
@@ -127,7 +137,11 @@ export default function SummaryPanel({
           )}
 
           {byDate.map(([date, dRows]) => {
-            const rev = dRows.reduce((s, r) => s + (Number(r.qty) * Number(r.price)), 0);
+            const rev = dRows.reduce((s, r) => {
+              return title.includes("Publishing") 
+                ? s + Number(r.price) 
+                : s + (Number(r.qty) * Number(r.price));
+            }, 0);
             return (
               <div key={date} className="mb-6 rounded-xl border border-gray-200 overflow-hidden shadow-sm">
                 <div className="bg-gray-100 px-4 py-3 border-b border-gray-200 flex justify-between items-center">

@@ -213,7 +213,7 @@ export function exportPublishingPDF({ filteredRows, catalogue, totalRevenue, tot
   openPrintWindow(html);
 }
 
-export function exportSummaryPDF({ byDate, inRange, totalRevenue, totalCop, netProfit, copRows, from, to, title }: any) {
+export function exportSummaryPDF({ byDate, inRange, totalRevenue, totalCop, totalExpenses, netProfit, copRows, from, to, title }: any) {
   const isPublishing = title.toLowerCase().includes('publishing');
   
   const dayBlocks = byDate.map(([date, dRows]: any) => {
@@ -258,6 +258,7 @@ export function exportSummaryPDF({ byDate, inRange, totalRevenue, totalCop, netP
     <div class="summary-grid">
       <div class="sum-card"><div class="lbl">Revenue</div><div class="val">₦${fmt(totalRevenue)}</div></div>
       <div class="sum-card"><div class="lbl">Total COP</div><div class="val amber">₦${fmt(totalCop)}</div></div>
+      ${totalExpenses ? `<div class="sum-card"><div class="lbl">Expenses</div><div class="val amber">₦${fmt(totalExpenses)}</div></div>` : ''}
       <div class="sum-card"><div class="lbl">Net Profit</div><div class="val ${netProfit >= 0 ? "green" : "red"}">₦${fmt(netProfit)}</div></div>
     </div>
     ${dayBlocks}
