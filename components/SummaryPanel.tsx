@@ -48,7 +48,11 @@ export default function SummaryPanel({
     return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0]));
   }, [inRange]);
 
-  const totalRevenue = inRange.reduce((s, r) => s + (Number(r.qty) * Number(r.price)), 0);
+  const totalRevenue = inRange.reduce((s, r) => {
+    return title.includes("Publishing") 
+      ? s + Number(r.price) 
+      : s + (Number(r.qty) * Number(r.price));
+  }, 0);
   const totalCop = copInRange.reduce((s, r) => s + Number(r.amount), 0);
   const netProfit = totalRevenue - totalCop;
 

@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import SummaryPanel from "./SummaryPanel";
 import { generateReceipt, exportPublishingPDF } from "@/lib/pdfUtils";
-import { updateCatalogue, saveStockLog, verifyCopPin } from "@/app/actions/publishing";
+import { updateCatalogue, saveStockLog, verifyCopPin, deleteCatalogueItem } from "@/app/actions/publishing";
 import { addLedgerEntry, updateLedgerEntry, deleteLedgerEntry } from "@/app/actions/ledger";
 
 const getLocalDate = () => {
@@ -74,6 +74,14 @@ export default function PublishingLedgerDashboard({
   const [catPin, setCatPin] = useState("");
   const [catUnlocked, setCatUnlocked] = useState(false);
   const [catError, setCatError] = useState("");
+  const [selectedEntries, setSelectedEntries] = useState<Set<string>>(new Set());
+
+  const toggleSelection = (id: string) => {
+    const newSet = new Set(selectedEntries);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setSelectedEntries(newSet);
+  };
 
   const filteredEntries = useMemo(() => {
     return initialRows.filter((entry: any) => {
@@ -201,6 +209,20 @@ export default function PublishingLedgerDashboard({
       alert("Failed to update catalogue");
     } finally {
       setCatLoading(false);
+    }
+  };
+
+  const handleCatalogueDelete = async (name: string) => {
+    if (!confirm(`Are you sure you want to delete ${name} from the catalogue?`)) return;
+    try {
+      await deleteCatalogueItem(name);
+      setCatalogue((prev: any) => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+    } catch (e) {
+      alert("Failed to delete catalogue item");
     }
   };
 
@@ -466,19 +488,43 @@ export default function PublishingLedgerDashboard({
                 <button type="submit" className="w-full py-2 bg-gray-100 text-gray-800 font-bold text-sm rounded-lg hover:bg-gray-200">Unlock</button>
               </form>
             ) : (
-              <form onSubmit={handleCatalogueSubmit} className="flex flex-col gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Service Name</label>
-                  <input type="text" placeholder="e.g. Printing" required className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-lg text-gray-900" value={catName} onChange={(e) => setCatName(e.target.value)} />
+              <>
+                <form onSubmit={handleCatalogueSubmit} className="flex flex-col gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Service Name</label>
+                    <input type="text" placeholder="e.g. Printing" required className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-lg text-gray-900" value={catName} onChange={(e) => setCatName(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Unit COP (₦)</label>
+                    <input type="number" step="0.01" min="0" required className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-lg text-gray-900" value={catCop} onChange={(e) => setCatCop(e.target.value)} />
+                  </div>
+                  <button type="submit" disabled={catLoading} className="w-full py-2 mt-1 bg-brand-yellow text-yellow-900 font-bold text-sm rounded-lg hover:brightness-95">
+                    {catLoading ? "Saving..." : "Add / Update"}
+                  </button>
+                </form>
+                <div className="mt-4 pt-4 border-t border-gray-100 max-h-48 overflow-y-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="sticky top-0 bg-white">
+                      <tr className="text-gray-500 uppercase">
+                        <th className="pb-2">Service</th>
+                        <th className="pb-2 text-right">COP</th>
+                        <th className="pb-2 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {Object.entries(catalogue).map(([name, data]: any) => (
+                        <tr key={name} className="hover:bg-gray-50">
+                          <td className="py-2 text-gray-900">{name}</td>
+                          <td className="py-2 text-right text-gray-900 font-bold">₦{data.cop}</td>
+                          <td className="py-2 text-right">
+                            <button onClick={() => handleCatalogueDelete(name)} className="text-red-500 hover:text-red-700">Delete</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Unit COP (₦)</label>
-                  <input type="number" step="0.01" min="0" required className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-lg text-gray-900" value={catCop} onChange={(e) => setCatCop(e.target.value)} />
-                </div>
-                <button type="submit" disabled={catLoading} className="w-full py-2 mt-1 bg-brand-yellow text-yellow-900 font-bold text-sm rounded-lg hover:brightness-95">
-                  {catLoading ? "Saving..." : "Add / Update"}
-                </button>
-              </form>
+              </>
             )}
           </div>
         </div>
@@ -505,21 +551,38 @@ export default function PublishingLedgerDashboard({
 
       {/* Sales Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
-        <div className="bg-gray-50 px-6 py-3 border-b border-gray-100">
+        <div className="bg-gray-50 px-6 py-3 border-b border-gray-100 flex justify-between items-center">
           <h3 className="font-bold text-gray-700 uppercase tracking-wider text-xs">Publishing Records</h3>
+          {selectedEntries.size > 0 && (
+            <button onClick={() => {
+              const rowsToPrint = filteredEntries.filter((e: any) => selectedEntries.has(e.id));
+              // We'll update pdfUtils to export a multi-receipt shortly
+              generateReceipt(rowsToPrint, title, true); 
+            }} className="px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-bold shadow-sm hover:bg-primary-hover">
+              🧾 Generate Receipt ({selectedEntries.size})
+            </button>
+          )}
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 text-gray-900">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-6 py-4">
+                  <input type="checkbox" onChange={(e) => {
+                    if (e.target.checked) setSelectedEntries(new Set(filteredEntries.map((e: any) => e.id)));
+                    else setSelectedEntries(new Set());
+                  }} checked={selectedEntries.size === filteredEntries.length && filteredEntries.length > 0} className="rounded text-primary focus:ring-primary" />
+                </th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Date</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Client Name</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Service</th>
                 <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Qty</th>
-                <th className="px-6 py-4 text-right text-xs font-bold text-brand-yellow uppercase tracking-wider">Total COP</th>
                 <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Price</th>
-                <th className="px-6 py-4 text-right text-xs font-bold text-orange-500 uppercase tracking-wider">Expenses</th>
+                <th className="px-6 py-4 text-right text-xs font-bold text-brand-yellow uppercase tracking-wider">COP</th>
                 <th className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Payment</th>
+                <th className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Delivery</th>
+                <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Balance</th>
+                <th className="px-6 py-4 text-right text-xs font-bold text-orange-500 uppercase tracking-wider">Expenses</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Note</th>
                 <th className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
@@ -531,7 +594,10 @@ export default function PublishingLedgerDashboard({
                   const totalCop = unitCop * (Number(entry.qty) || 0);
 
                   return (
-                    <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={entry.id} className={`hover:bg-gray-50 transition-colors ${selectedEntries.has(entry.id) ? 'bg-blue-50/50' : ''}`}>
+                      <td className="px-6 py-4">
+                        <input type="checkbox" checked={selectedEntries.has(entry.id)} onChange={() => toggleSelection(entry.id)} className="rounded text-primary focus:ring-primary" />
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <span className="font-bold text-gray-900 block">
                           {entry.entry_date ? new Date(entry.entry_date).toLocaleDateString() : new Date(entry.created_at).toLocaleDateString()}
@@ -540,10 +606,8 @@ export default function PublishingLedgerDashboard({
                       <td className="px-6 py-4 text-sm font-medium text-gray-900">{entry.client_name}</td>
                       <td className="px-6 py-4 text-sm text-gray-600 max-w-[150px] truncate">{entry.description}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">{entry.qty}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-brand-yellow">₦{totalCop.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900">₦{Number(entry.price).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-orange-500">₦{Number(entry.expenses || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                      
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-brand-yellow">₦{totalCop.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
                         <span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full 
                           ${entry.payment_method === 'Credit' ? 'bg-[#FFF9E5] text-[#FFCC29]' : 
@@ -554,6 +618,9 @@ export default function PublishingLedgerDashboard({
                           {entry.payment_method.toUpperCase()}
                         </span>
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center" style={{textTransform: 'capitalize'}}>{entry.delivery_method}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">₦{Number(entry.balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-orange-500">₦{Number(entry.expenses || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                       <td className="px-6 py-4 text-sm text-gray-500 max-w-[150px] truncate" title={entry.note}>
                         {entry.note || '-'}
                       </td>

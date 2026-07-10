@@ -60,6 +60,15 @@ export default function LedgerDashboard({
   const [copEntryToDelete, setCopEntryToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const [selectedEntries, setSelectedEntries] = useState<Set<string>>(new Set());
+
+  const toggleSelection = (id: string) => {
+    const newSet = new Set(selectedEntries);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setSelectedEntries(newSet);
+  };
+
   const todayStr = getLocalDate();
 
   const handlePrevDay = () => {
@@ -316,13 +325,27 @@ export default function LedgerDashboard({
 
       {/* Sales Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
-        <div className="bg-gray-50 px-6 py-3 border-b border-gray-100">
-          <h3 className="font-bold text-gray-700 uppercase tracking-wider text-xs">Sales Record</h3>
+        <div className="bg-gray-50 px-6 py-3 border-b border-gray-100 flex justify-between items-center">
+          <h3 className="font-bold text-gray-700 uppercase tracking-wider text-xs">Sales Records</h3>
+          {selectedEntries.size > 0 && (
+            <button onClick={() => {
+              const rowsToPrint = filteredEntries.filter((e) => selectedEntries.has(e.id));
+              generateReceipt(rowsToPrint, title, true); 
+            }} className="px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-bold shadow-sm hover:bg-primary-hover">
+              🧾 Generate Receipt ({selectedEntries.size})
+            </button>
+          )}
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 text-gray-900">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-6 py-4">
+                  <input type="checkbox" onChange={(e) => {
+                    if (e.target.checked) setSelectedEntries(new Set(filteredEntries.map((e) => e.id)));
+                    else setSelectedEntries(new Set());
+                  }} checked={selectedEntries.size === filteredEntries.length && filteredEntries.length > 0} className="rounded text-primary focus:ring-primary" />
+                </th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Date</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Client Name</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Description</th>
@@ -341,7 +364,10 @@ export default function LedgerDashboard({
                 filteredEntries.map((entry) => {
                   const total = Number(entry.qty) * Number(entry.price);
                   return (
-                    <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={entry.id} className={`hover:bg-gray-50 transition-colors ${selectedEntries.has(entry.id) ? 'bg-blue-50/50' : ''}`}>
+                      <td className="px-6 py-4">
+                        <input type="checkbox" checked={selectedEntries.has(entry.id)} onChange={() => toggleSelection(entry.id)} className="rounded text-primary focus:ring-primary" />
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <span className="font-bold text-gray-900 block">
                           {entry.entry_date ? new Date(entry.entry_date).toLocaleDateString() : new Date(entry.created_at).toLocaleDateString()}

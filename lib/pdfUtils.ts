@@ -36,10 +36,30 @@ const PDF_BASE_STYLES = `
   @media print { body { padding: 10px; } }
 `;
 
-export function generateReceipt(row: any, title: string) {
-  const receiptNo = `RCP-${row.id.split('-')[0].toUpperCase()}`;
-  const price     = fmtN(row.price * row.qty); // Total price
-  const qty       = fmtN(row.qty);
+export function generateReceipt(rowsOrRow: any, title: string, isMulti = false) {
+  const rows = Array.isArray(rowsOrRow) ? rowsOrRow : [rowsOrRow];
+  if (rows.length === 0) return;
+
+  const receiptNo = `RCP-${rows[0].id.split('-')[0].toUpperCase()}${isMulti ? '-MULTI' : ''}`;
+  
+  const isPublishing = title.toLowerCase().includes('publishing');
+  let grandTotal = 0;
+  let totalBalance = 0;
+
+  const itemsHtml = rows.map(row => {
+    const price = isPublishing ? fmtN(row.price) : fmtN(row.price * row.qty);
+    grandTotal += price;
+    totalBalance += fmtN(row.balance);
+    
+    return `
+      <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #eee;">
+        <div class="row"><span class="label">Description</span><span class="value">${row.description || "—"}</span></div>
+        <div class="row"><span class="label">Quantity</span><span class="value">${row.qty || "—"}</span></div>
+        ${!isPublishing ? `<div class="row"><span class="label">Unit Price</span><span class="value">₦${fmt(row.price)}</span></div>` : ""}
+        <div class="row"><span class="label">Amount</span><span class="value">₦${fmt(price)}</span></div>
+      </div>
+    `;
+  }).join('');
 
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Receipt ${receiptNo}</title>
   <style>
@@ -56,26 +76,30 @@ export function generateReceipt(row: any, title: string) {
     .stamp span { display: inline-block; border: 2px solid #166534; color: #166534; font-weight: bold; font-size: 13px; padding: 4px 16px; border-radius: 4px; letter-spacing: 1px; transform: rotate(-3deg); }
   </style></head><body>
   <div class="receipt-box">
-    <div class="biz-header">
-      <h1>${BUSINESS_NAME}</h1>
-      <div class="biz-sub">${title} Services</div>
+    <div style="display: flex; align-items: center; gap: 12px; border-bottom: 3px solid #111; padding-bottom: 12px; margin-bottom: 14px;">
+      <img src="${window.location.origin}/icon.png" alt="Logo" style="width: 40px; height: 40px; object-fit: contain;" />
+      <div>
+        <h1 style="text-align: left; font-size: 18px; margin: 0;">${BUSINESS_NAME}</h1>
+        <div class="biz-sub" style="text-align: left; margin: 0;">${title} Services</div>
+      </div>
     </div>
     <div style="display:flex;justify-content:space-between;font-size:10px;color:#555;margin-bottom:12px;">
       <span><b>Receipt No:</b> ${receiptNo}</span>
-      <span><b>Date:</b> ${fmtDate(row.entry_date || row.created_at)}</span>
+      <span><b>Date:</b> ${fmtDate(rows[0].entry_date || rows[0].created_at)}</span>
     </div>
-    <div class="row"><span class="label">Client</span><span class="value">${row.client_name || "—"}</span></div>
-    <div class="row"><span class="label">Description</span><span class="value">${row.description || "—"}</span></div>
-    <div class="row"><span class="label">Quantity</span><span class="value">${row.qty || "—"}</span></div>
-    ${qty && price ? `<div class="row"><span class="label">Unit Price</span><span class="value">₦${fmt(row.price)}</span></div>` : ""}
+    <div class="row"><span class="label">Client</span><span class="value">${rows[0].client_name || "—"}</span></div>
+    
     <hr class="divider"/>
-    <div class="total-row"><span>TOTAL</span><span>₦${fmt(price)}</span></div>
-    ${row.balance > 0 ? `<div class="row" style="margin-top:6px; color:#c07800;"><span class="label">Balance Due</span><span class="value">₦${fmt(row.balance)}</span></div>` : ""}
+    <h3 style="font-size: 10px; text-transform: uppercase; margin: 0 0 10px 0; color: #888;">Items</h3>
+    ${itemsHtml}
+    
+    <div class="total-row"><span>GRAND TOTAL</span><span>₦${fmt(grandTotal)}</span></div>
+    ${totalBalance > 0 ? `<div class="row" style="margin-top:6px; color:#c07800;"><span class="label">Total Balance Due</span><span class="value">₦${fmt(totalBalance)}</span></div>` : ""}
     <hr class="divider"/>
-    <div class="row"><span class="label">Payment Mode</span><span class="value" style="text-transform: capitalize;">${row.payment_method}</span></div>
-    <div class="row"><span class="label">Delivery</span><span class="value" style="text-transform: capitalize;">${row.delivery_method}</span></div>
-    ${row.note ? `<div class="row"><span class="label">Note</span><span class="value">${row.note}</span></div>` : ""}
-    ${price ? `<div class="stamp"><span>RECEIVED</span></div>` : ""}
+    <div class="row"><span class="label">Payment Mode</span><span class="value" style="text-transform: capitalize;">${rows[0].payment_method}</span></div>
+    <div class="row"><span class="label">Delivery</span><span class="value" style="text-transform: capitalize;">${rows[0].delivery_method}</span></div>
+    ${!isMulti && rows[0].note ? `<div class="row"><span class="label">Note</span><span class="value">${rows[0].note}</span></div>` : ""}
+    ${grandTotal ? `<div class="stamp"><span>RECEIVED</span></div>` : ""}
     <div class="footer">Thank you for your business!<br/>${BUSINESS_NAME} · ${fmtDate(new Date().toISOString())}</div>
   </div>
   <script>window.onload=()=>window.print()</script>
@@ -86,11 +110,13 @@ export function generateReceipt(row: any, title: string) {
 
 export function exportLedgerPDF({ filteredRows, totalRevenue, totalCop, copRows, filterDate, title }: any) {
   const gross    = totalRevenue - totalCop;
+  const isPublishing = title.toLowerCase().includes('publishing');
+  
   const rowsHtml = filteredRows.map((r: any) => `<tr>
     <td>${fmtDate(r.entry_date || r.created_at)}</td><td>${r.client_name || "—"}</td><td>${r.description || "—"}</td>
     <td class="right">${r.qty || "—"}</td>
-    <td class="right">${r.price ? fmt(r.price) : "—"}</td>
-    <td class="right" style="font-weight:bold;">${fmt(r.price * r.qty)}</td>
+    ${!isPublishing ? `<td class="right">${r.price ? fmt(r.price) : "—"}</td>` : ''}
+    <td class="right" style="font-weight:bold;">${isPublishing ? fmt(r.price) : fmt(r.price * r.qty)}</td>
     <td class="right">${r.balance ? fmt(r.balance) : "—"}</td>
     <td style="text-transform: capitalize;">${r.payment_method}</td><td style="text-transform: capitalize;">${r.delivery_method}</td>
     <td>${r.note || "—"}</td>
@@ -106,7 +132,13 @@ export function exportLedgerPDF({ filteredRows, totalRevenue, totalCop, copRows,
   
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${BUSINESS_NAME} — ${title} Ledger</title>
   <style>${PDF_BASE_STYLES}</style></head><body>
-    <div class="biz-header"><h1>${BUSINESS_NAME}</h1><div class="biz-sub">${title} Services — Sales Ledger</div></div>
+    <div style="display: flex; align-items: center; justify-content: center; gap: 12px; border-bottom: 3px solid #111; padding-bottom: 12px; margin-bottom: 14px;">
+      <img src="${window.location.origin}/icon.png" alt="Logo" style="width: 40px; height: 40px; object-fit: contain;" />
+      <div style="text-align: left;">
+        <h1 style="margin: 0;">${BUSINESS_NAME}</h1>
+        <div class="biz-sub" style="margin: 0;">${title} Services — Sales Ledger</div>
+      </div>
+    </div>
     <div class="meta">Exported: ${new Date().toLocaleString("en-GB")} &nbsp;|&nbsp; Entries: ${filteredRows.length}${filterDate ? ` &nbsp;|&nbsp; Date: ${fmtDate(filterDate)}` : ""}</div>
     <div class="summary-grid">
       <div class="sum-card"><div class="lbl">Revenue</div><div class="val">₦${fmt(totalRevenue)}</div></div>
@@ -117,10 +149,10 @@ export function exportLedgerPDF({ filteredRows, totalRevenue, totalCop, copRows,
     <h2 style="font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px;color:#333;">Sales Record</h2>
     <table style="width:100%; border-collapse: collapse; margin-bottom: 24px;"><thead><tr>
       <th>Date</th><th>Client</th><th>Description</th><th class="right">Qty</th>
-      <th class="right">Unit Price</th><th class="right">Total</th><th class="right">Balance</th><th>Payment</th><th>Delivery</th><th>Note</th>
+      ${!isPublishing ? '<th class="right">Unit Price</th>' : ''}<th class="right">Total Price</th><th class="right">Balance</th><th>Payment</th><th>Delivery</th><th>Note</th>
     </tr></thead><tbody>${rowsHtml}</tbody>
     <tfoot><tr class="tfoot">
-      <td colspan="5">Total Revenue</td>
+      <td colspan="${!isPublishing ? '5' : '4'}">Total Revenue</td>
       <td class="right">₦${fmt(totalRevenue)}</td>
       <td colspan="4"></td>
     </tr></tfoot></table>
@@ -182,13 +214,15 @@ export function exportPublishingPDF({ filteredRows, catalogue, totalRevenue, tot
 }
 
 export function exportSummaryPDF({ byDate, inRange, totalRevenue, totalCop, netProfit, copRows, from, to, title }: any) {
+  const isPublishing = title.toLowerCase().includes('publishing');
+  
   const dayBlocks = byDate.map(([date, dRows]: any) => {
-    const rev = dRows.reduce((s: any, r: any) => s + (fmtN(r.price) * fmtN(r.qty)), 0);
+    const rev = dRows.reduce((s: any, r: any) => s + (isPublishing ? fmtN(r.price) : fmtN(r.price) * fmtN(r.qty)), 0);
     const rowsHtml = dRows.map((r: any) => `<tr>
       <td>${r.client_name || "—"}</td><td>${r.description || "—"}</td>
       <td class="right">${r.qty || "—"}</td>
-      <td class="right">${r.price ? fmt(r.price) : "—"}</td>
-      <td class="right" style="font-weight:bold;">${fmt(r.price * r.qty)}</td>
+      ${!isPublishing ? `<td class="right">${r.price ? fmt(r.price) : "—"}</td>` : ''}
+      <td class="right" style="font-weight:bold;">${isPublishing ? fmt(r.price) : fmt(r.price * r.qty)}</td>
       <td class="right">${r.balance ? fmt(r.balance) : "—"}</td>
       <td style="text-transform: capitalize;">${r.payment_method}</td><td style="text-transform: capitalize;">${r.delivery_method}</td>
       <td>${r.note || "—"}</td>
@@ -201,7 +235,9 @@ export function exportSummaryPDF({ byDate, inRange, totalRevenue, totalCop, netP
       <table style="width:100%; border-collapse: collapse; margin-bottom: 24px;">
       <thead>
         <tr>
-          <th>Date</th><th>Client Name</th><th>Description</th><th class="right">Qty</th><th class="right">Price (₦)</th><th class="right">Total (₦)</th><th class="right">Balance (₦)</th><th>Payment Mode</th><th>Delivery</th><th>Note</th>
+          <th>Date</th><th>Client Name</th><th>Description</th><th class="right">Qty</th>
+          ${!isPublishing ? '<th class="right">Unit Price (₦)</th>' : ''}
+          <th class="right">Total (₦)</th><th class="right">Balance (₦)</th><th>Payment Mode</th><th>Delivery</th><th>Note</th>
         </tr>
       </thead>
       <tbody>
