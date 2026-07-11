@@ -235,7 +235,7 @@ export function exportSummaryPDF({ byDate, inRange, totalRevenue, totalCop, tota
       <table style="width:100%; border-collapse: collapse; margin-bottom: 24px;">
       <thead>
         <tr>
-          <th>Date</th><th>Client Name</th><th>Description</th><th class="right">Qty</th>
+          <th>Client Name</th><th>Description</th><th class="right">Qty</th>
           ${!isPublishing ? '<th class="right">Unit Price (₦)</th>' : ''}
           <th class="right">Total (₦)</th><th class="right">Balance (₦)</th><th>Payment Mode</th><th>Delivery</th><th>Note</th>
         </tr>
