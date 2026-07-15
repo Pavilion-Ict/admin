@@ -127,7 +127,11 @@ export default function LedgerDashboard({
     });
   }, [initialCopEntries, dateFilter]);
 
-  const totalRevenue = filteredEntries.reduce((sum, e) => sum + (Number(e.qty) * Number(e.price)), 0);
+  const totalRevenue = filteredEntries.reduce((sum, e) => {
+    return title.includes("Digital Prints") 
+      ? sum + Number(e.price)
+      : sum + (Number(e.qty) * Number(e.price));
+  }, 0);
   const totalCop = filteredCopEntries.reduce((sum, e) => sum + Number(e.amount), 0);
   const netProfit = totalRevenue - totalCop;
 

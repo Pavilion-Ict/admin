@@ -51,7 +51,7 @@ export default function SummaryPanel({
   }, [inRange]);
 
   const totalRevenue = inRange.reduce((s, r) => {
-    return title.includes("Publishing") 
+    return (title.includes("Publishing") || title.includes("Digital Prints"))
       ? s + Number(r.price) 
       : s + (Number(r.qty) * Number(r.price));
   }, 0);
@@ -138,7 +138,7 @@ export default function SummaryPanel({
 
           {byDate.map(([date, dRows]) => {
             const rev = dRows.reduce((s, r) => {
-              return title.includes("Publishing") 
+              return (title.includes("Publishing") || title.includes("Digital Prints"))
                 ? s + Number(r.price) 
                 : s + (Number(r.qty) * Number(r.price));
             }, 0);

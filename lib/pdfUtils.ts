@@ -110,13 +110,13 @@ export function generateReceipt(rowsOrRow: any, title: string, isMulti = false) 
 
 export function exportLedgerPDF({ filteredRows, totalRevenue, totalCop, copRows, filterDate, title }: any) {
   const gross    = totalRevenue - totalCop;
-  const isPublishing = title.toLowerCase().includes('publishing');
+  const isNoMultiply = title.toLowerCase().includes('publishing') || title.toLowerCase().includes('digital prints');
   
   const rowsHtml = filteredRows.map((r: any) => `<tr>
     <td>${fmtDate(r.entry_date || r.created_at)}</td><td>${r.client_name || "—"}</td><td>${r.description || "—"}</td>
     <td class="right">${r.qty || "—"}</td>
-    ${!isPublishing ? `<td class="right">${r.price ? fmt(r.price) : "—"}</td>` : ''}
-    <td class="right" style="font-weight:bold;">${isPublishing ? fmt(r.price) : fmt(r.price * r.qty)}</td>
+    ${!isNoMultiply ? `<td class="right">${r.price ? fmt(r.price) : "—"}</td>` : ''}
+    <td class="right" style="font-weight:bold;">${isNoMultiply ? fmt(r.price) : fmt(r.price * r.qty)}</td>
     <td class="right">${r.balance ? fmt(r.balance) : "—"}</td>
     <td style="text-transform: capitalize;">${r.payment_method}</td><td style="text-transform: capitalize;">${r.delivery_method}</td>
     <td>${r.note || "—"}</td>
@@ -149,10 +149,10 @@ export function exportLedgerPDF({ filteredRows, totalRevenue, totalCop, copRows,
     <h2 style="font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px;color:#333;">Sales Record</h2>
     <table style="width:100%; border-collapse: collapse; margin-bottom: 24px;"><thead><tr>
       <th>Date</th><th>Client</th><th>Description</th><th class="right">Qty</th>
-      ${!isPublishing ? '<th class="right">Unit Price</th>' : ''}<th class="right">Total Price</th><th class="right">Balance</th><th>Payment</th><th>Delivery</th><th>Note</th>
+      ${!isNoMultiply ? '<th class="right">Unit Price</th>' : ''}<th class="right">Total Price</th><th class="right">Balance</th><th>Payment</th><th>Delivery</th><th>Note</th>
     </tr></thead><tbody>${rowsHtml}</tbody>
     <tfoot><tr class="tfoot">
-      <td colspan="${!isPublishing ? '5' : '4'}">Total Revenue</td>
+      <td colspan="${!isNoMultiply ? '5' : '4'}">Total Revenue</td>
       <td class="right">₦${fmt(totalRevenue)}</td>
       <td colspan="4"></td>
     </tr></tfoot></table>
@@ -214,15 +214,15 @@ export function exportPublishingPDF({ filteredRows, catalogue, totalRevenue, tot
 }
 
 export function exportSummaryPDF({ byDate, inRange, totalRevenue, totalCop, totalExpenses, netProfit, copRows, from, to, title }: any) {
-  const isPublishing = title.toLowerCase().includes('publishing');
+  const isNoMultiply = title.toLowerCase().includes('publishing') || title.toLowerCase().includes('digital prints');
   
   const dayBlocks = byDate.map(([date, dRows]: any) => {
-    const rev = dRows.reduce((s: any, r: any) => s + (isPublishing ? fmtN(r.price) : fmtN(r.price) * fmtN(r.qty)), 0);
+    const rev = dRows.reduce((s: any, r: any) => s + (isNoMultiply ? fmtN(r.price) : fmtN(r.price) * fmtN(r.qty)), 0);
     const rowsHtml = dRows.map((r: any) => `<tr>
       <td>${r.client_name || "—"}</td><td>${r.description || "—"}</td>
       <td class="right">${r.qty || "—"}</td>
-      ${!isPublishing ? `<td class="right">${r.price ? fmt(r.price) : "—"}</td>` : ''}
-      <td class="right" style="font-weight:bold;">${isPublishing ? fmt(r.price) : fmt(r.price * r.qty)}</td>
+      ${!isNoMultiply ? `<td class="right">${r.price ? fmt(r.price) : "—"}</td>` : ''}
+      <td class="right" style="font-weight:bold;">${isNoMultiply ? fmt(r.price) : fmt(r.price * r.qty)}</td>
       <td class="right">${r.balance ? fmt(r.balance) : "—"}</td>
       <td style="text-transform: capitalize;">${r.payment_method}</td><td style="text-transform: capitalize;">${r.delivery_method}</td>
       <td>${r.note || "—"}</td>
@@ -236,7 +236,7 @@ export function exportSummaryPDF({ byDate, inRange, totalRevenue, totalCop, tota
       <thead>
         <tr>
           <th>Client Name</th><th>Description</th><th class="right">Qty</th>
-          ${!isPublishing ? '<th class="right">Unit Price (₦)</th>' : ''}
+          ${!isNoMultiply ? '<th class="right">Unit Price (₦)</th>' : ''}
           <th class="right">Total (₦)</th><th class="right">Balance (₦)</th><th>Payment Mode</th><th>Delivery</th><th>Note</th>
         </tr>
       </thead>

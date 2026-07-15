@@ -40,6 +40,8 @@ async function getWeeklySummary() {
       if (table === 'publishing_ledger') {
         totalRev += Number(s.price || 0);
         totalCop += (catMap[s.description] || 0) * (Number(s.qty) || 0);
+      } else if (table === 'digital_prints_ledger') {
+        totalRev += Number(s.price || 0);
       } else {
         totalRev += (Number(s.qty || 1) * Number(s.price || 0));
       }
