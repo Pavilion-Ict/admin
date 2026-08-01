@@ -3,6 +3,7 @@ import { authOptions } from "./api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
 import SignOutButton from "@/components/SignOutButton";
 import Link from "next/link";
+import GlobalExportButton from "@/components/GlobalExportButton";
 
 import { supabase } from "@/lib/supabase";
 
@@ -58,7 +59,24 @@ async function getWeeklySummary() {
     }
   }
 
-  return { totalRev, totalCop, totalExp, startStr };
+  // Fetch Global Expenses
+  const { data: globalExpData } = await supabase.from('company_expenses').select("*").gte('entry_date', startStr);
+  const { data: globalExpNull } = await supabase.from('company_expenses').select("*").is('entry_date', null).gte('created_at', startStr);
+  
+  [...(globalExpData || []), ...(globalExpNull || [])].forEach(e => {
+    totalExp += Number(e.amount || 0);
+  });
+
+  // Fetch Global Income
+  let totalInc = 0;
+  const { data: globalIncData } = await supabase.from('company_income').select("*").gte('entry_date', startStr);
+  const { data: globalIncNull } = await supabase.from('company_income').select("*").is('entry_date', null).gte('created_at', startStr);
+  
+  [...(globalIncData || []), ...(globalIncNull || [])].forEach(e => {
+    totalInc += Number(e.amount || 0);
+  });
+
+  return { totalRev, totalCop, totalExp, totalInc, startStr };
 }
 
 export default async function AdminPage() {
@@ -73,7 +91,7 @@ export default async function AdminPage() {
   }
 
   const summary = await getWeeklySummary();
-  const netProfit = summary.totalRev - summary.totalCop - summary.totalExp;
+  const netProfit = summary.totalRev - summary.totalCop - summary.totalExp + summary.totalInc;
 
   return (
     <div className="min-h-screen bg-gray-50/50 p-4 sm:p-8 font-sans">
@@ -120,6 +138,8 @@ export default async function AdminPage() {
           </div>
         </div>
 
+        <GlobalExportButton />
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Link href="/publishing" className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 group relative overflow-hidden">
             <div className="absolute top-0 left-0 w-2 h-full bg-primary transform origin-bottom transition-transform duration-300 group-hover:scale-y-110"></div>
@@ -140,6 +160,11 @@ export default async function AdminPage() {
              <div className="absolute top-0 left-0 w-2 h-full bg-accent transform origin-bottom transition-transform duration-300 group-hover:scale-y-110"></div>
             <h2 className="text-2xl font-bold text-accent mb-2 group-hover:text-accent transition-colors">eCafe Ledger &rarr;</h2>
             <p className="text-gray-500 font-medium">Manage eCafe service transactions.</p>
+          </Link>
+          <Link href="/income-expenses" className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 group relative overflow-hidden md:col-span-2">
+             <div className="absolute top-0 left-0 w-2 h-full bg-purple-500 transform origin-bottom transition-transform duration-300 group-hover:scale-y-110"></div>
+            <h2 className="text-2xl font-bold text-purple-500 mb-2 group-hover:text-purple-600 transition-colors">Global Income & Expenses &rarr;</h2>
+            <p className="text-gray-500 font-medium">Manage company-wide additional income and expenses.</p>
           </Link>
         </div>
       </div>

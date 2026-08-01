@@ -56,8 +56,7 @@ export default function SummaryPanel({
       : s + (Number(r.qty) * Number(r.price));
   }, 0);
   const totalCop = copInRange.reduce((s, r) => s + Number(r.amount), 0);
-  const totalExpenses = inRange.reduce((s, r) => s + Number(r.expenses || 0), 0);
-  const netProfit = totalRevenue - totalCop - totalExpenses;
+  const grossProfit = totalRevenue - totalCop;
 
   const handleExport = () => {
     exportSummaryPDF({
@@ -65,8 +64,7 @@ export default function SummaryPanel({
       inRange,
       totalRevenue,
       totalCop,
-      totalExpenses,
-      netProfit,
+      grossProfit,
       copRows: copInRange,
       from,
       to,
@@ -119,15 +117,9 @@ export default function SummaryPanel({
               <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Total COP</div>
               <div className="text-2xl font-bold text-brand-yellow">₦{totalCop.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
             </div>
-            {totalExpenses > 0 && (
-              <div className="flex-1 p-4 bg-white border-l border-gray-100">
-                <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Expenses</div>
-                <div className="text-2xl font-bold text-orange-500">₦{totalExpenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
-              </div>
-            )}
             <div className="flex-1 p-4 bg-gray-50 border-l border-gray-100">
-              <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Net Profit</div>
-              <div className={`text-2xl font-bold ${netProfit >= 0 ? "text-green-600" : "text-red-600"}`}>₦{netProfit.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+              <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Gross Profit</div>
+              <div className={`text-2xl font-bold ${grossProfit >= 0 ? "text-green-600" : "text-red-600"}`}>₦{grossProfit.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
             </div>
           </div>
 

@@ -143,7 +143,7 @@ export function exportLedgerPDF({ filteredRows, totalRevenue, totalCop, copRows,
     <div class="summary-grid">
       <div class="sum-card"><div class="lbl">Revenue</div><div class="val">₦${fmt(totalRevenue)}</div></div>
       <div class="sum-card"><div class="lbl">Total COP</div><div class="val amber">₦${fmt(totalCop)}</div></div>
-      <div class="sum-card"><div class="lbl">Net Profit</div><div class="val ${gross >= 0 ? "green" : "red"}">₦${fmt(gross)}</div></div>
+      <div class="sum-card"><div class="lbl">Gross Profit</div><div class="val ${gross >= 0 ? "green" : "red"}">₦${fmt(gross)}</div></div>
     </div>
     
     <h2 style="font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px;color:#333;">Sales Record</h2>
@@ -170,8 +170,8 @@ export function exportLedgerPDF({ filteredRows, totalRevenue, totalCop, copRows,
   openPrintWindow(html);
 }
 
-export function exportPublishingPDF({ filteredRows, catalogue, totalRevenue, totalCop, totalExpenses, filterDate, title }: any) {
-  const netProfit = totalRevenue - totalCop - totalExpenses;
+export function exportPublishingPDF({ filteredRows, catalogue, totalRevenue, totalCop, filterDate, title }: any) {
+  const grossProfit = totalRevenue - totalCop;
   const rowsHtml = filteredRows.map((r: any) => {
     const unitCop = (catalogue[r.description] || { cop: 0 }).cop;
     const tcp = unitCop * (Number(r.qty) || 0);
@@ -180,7 +180,6 @@ export function exportPublishingPDF({ filteredRows, catalogue, totalRevenue, tot
       <td class="right">${r.qty || "—"}</td>
       <td class="right font-monospace amber">₦${fmt(tcp)}</td>
       <td class="right">₦${r.price ? fmt(r.price) : "—"}</td>
-      <td class="right amber">₦${r.expenses ? fmt(r.expenses) : "0.00"}</td>
       <td class="right">${r.balance ? fmt(r.balance) : "—"}</td>
       <td style="text-transform: capitalize;">${r.payment_method}</td><td style="text-transform: capitalize;">${r.delivery_method}</td>
       <td>${r.note || "—"}</td>
@@ -196,14 +195,13 @@ export function exportPublishingPDF({ filteredRows, catalogue, totalRevenue, tot
     <div class="summary-grid">
       <div class="sum-card"><div class="lbl">Revenue</div><div class="val">₦${fmt(totalRevenue)}</div></div>
       <div class="sum-card"><div class="lbl">Total COP</div><div class="val amber">₦${fmt(totalCop)}</div></div>
-      <div class="sum-card"><div class="lbl">Expenses</div><div class="val amber">₦${fmt(totalExpenses)}</div></div>
-      <div class="sum-card"><div class="lbl">Net Profit</div><div class="val ${netProfit >= 0 ? "green" : "red"}">₦${fmt(netProfit)}</div></div>
+      <div class="sum-card"><div class="lbl">Gross Profit</div><div class="val ${grossProfit >= 0 ? "green" : "red"}">₦${fmt(grossProfit)}</div></div>
     </div>
     
     <h2 style="font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px;color:#333;">Publishing Records</h2>
     <table style="width:100%; border-collapse: collapse; margin-bottom: 24px;"><thead><tr>
       <th>Date</th><th>Client</th><th>Service</th><th class="right">Qty</th>
-      <th class="right amber">Total COP</th><th class="right">Price</th><th class="right amber">Expenses</th><th class="right">Balance</th><th>Payment</th><th>Delivery</th><th>Note</th>
+      <th class="right amber">Total COP</th><th class="right">Price</th><th class="right">Balance</th><th>Payment</th><th>Delivery</th><th>Note</th>
     </tr></thead><tbody>${rowsHtml}</tbody>
     </table>
     
@@ -213,7 +211,7 @@ export function exportPublishingPDF({ filteredRows, catalogue, totalRevenue, tot
   openPrintWindow(html);
 }
 
-export function exportSummaryPDF({ byDate, inRange, totalRevenue, totalCop, totalExpenses, netProfit, copRows, from, to, title }: any) {
+export function exportSummaryPDF({ byDate, inRange, totalRevenue, totalCop, grossProfit, copRows, from, to, title }: any) {
   const isNoMultiply = title.toLowerCase().includes('publishing') || title.toLowerCase().includes('digital prints');
   
   const dayBlocks = byDate.map(([date, dRows]: any) => {
@@ -258,8 +256,7 @@ export function exportSummaryPDF({ byDate, inRange, totalRevenue, totalCop, tota
     <div class="summary-grid">
       <div class="sum-card"><div class="lbl">Revenue</div><div class="val">₦${fmt(totalRevenue)}</div></div>
       <div class="sum-card"><div class="lbl">Total COP</div><div class="val amber">₦${fmt(totalCop)}</div></div>
-      ${totalExpenses ? `<div class="sum-card"><div class="lbl">Expenses</div><div class="val amber">₦${fmt(totalExpenses)}</div></div>` : ''}
-      <div class="sum-card"><div class="lbl">Net Profit</div><div class="val ${netProfit >= 0 ? "green" : "red"}">₦${fmt(netProfit)}</div></div>
+      <div class="sum-card"><div class="lbl">Gross Profit</div><div class="val ${grossProfit >= 0 ? "green" : "red"}">₦${fmt(grossProfit)}</div></div>
     </div>
     ${dayBlocks}
     <div style="margin-top:20px;">
@@ -269,6 +266,119 @@ export function exportSummaryPDF({ byDate, inRange, totalRevenue, totalCop, tota
       <tfoot><tr class="tfoot"><td colspan="3">Total COP</td><td class="right amber">₦${fmt(totalCop)}</td></tr></tfoot>
       </table>
     </div>
+    <script>window.onload=()=>window.print()</script>
+  </body></html>`;
+  
+  openPrintWindow(html);
+}
+
+export function exportGlobalSummaryPDF({ ledgers, allExpenses, allIncome, from, to }: any) {
+  const ledgersHtml = ledgers.map((l: any) => {
+    return `
+    <div style="margin-bottom: 24px; page-break-inside: avoid;">
+      <h2 style="font-size:18px; font-weight: 800; text-align: center; text-transform:uppercase; margin-bottom: 16px; border-bottom: 2px solid #1a2535; padding-bottom: 8px; margin-top: 16px;">
+        ${l.title}
+      </h2>
+      <div class="summary-grid" style="margin-bottom: 12px;">
+        <div class="sum-card"><div class="lbl">Revenue</div><div class="val">₦${fmt(l.totalRevenue)}</div></div>
+        <div class="sum-card"><div class="lbl">COP</div><div class="val amber">₦${fmt(l.totalCop)}</div></div>
+        <div class="sum-card"><div class="lbl">Gross Profit</div><div class="val ${l.netProfit >= 0 ? "green" : "red"}">₦${fmt(l.netProfit)}</div></div>
+      </div>
+      <div style="font-size: 11px; color: #555; margin-bottom: 8px;">
+        ${l.inRange.length} sales · ${l.copRows.length} COP entries
+      </div>
+      
+      ${l.byDate.map(([date, dRows]: any) => {
+        const isNoMultiply = l.title.toLowerCase().includes('publishing') || l.title.toLowerCase().includes('digital prints');
+        const rev = dRows.reduce((s: any, r: any) => s + (isNoMultiply ? fmtN(r.price) : fmtN(r.price) * fmtN(r.qty)), 0);
+        const rowsHtml = dRows.map((r: any) => `<tr>
+          <td style="padding:4px; border-bottom:1px solid #eee;">${r.client_name || "—"}</td><td style="padding:4px; border-bottom:1px solid #eee;">${r.description || "—"}</td>
+          <td class="right" style="padding:4px; border-bottom:1px solid #eee;">${r.qty || "—"}</td>
+          ${!isNoMultiply ? `<td class="right" style="padding:4px; border-bottom:1px solid #eee;">${r.price ? fmt(r.price) : "—"}</td>` : ''}
+          <td class="right" style="padding:4px; border-bottom:1px solid #eee; font-weight:bold;">${isNoMultiply ? fmt(r.price) : fmt(r.price * r.qty)}</td>
+          <td class="right" style="padding:4px; border-bottom:1px solid #eee;">${r.balance ? fmt(r.balance) : "—"}</td>
+          <td style="padding:4px; border-bottom:1px solid #eee; text-transform: capitalize;">${r.payment_method}</td><td style="padding:4px; border-bottom:1px solid #eee; text-transform: capitalize;">${r.delivery_method}</td>
+          <td style="padding:4px; border-bottom:1px solid #eee;">${r.note || "—"}</td>
+        </tr>`).join("");
+        return `<div style="margin-bottom:18px;page-break-inside:avoid; font-size: 10px;">
+          <div style="background:#f1f5f9;color:#334155;padding:4px 8px;border-radius:4px 4px 0 0;display:flex;justify-content:space-between;border:1px solid #e2e8f0;border-bottom:none;">
+            <b>${fmtDate(date)}</b>
+            <span>Revenue: ₦${fmt(rev)} · ${dRows.length} entries</span>
+          </div>
+          <table style="width:100%; border-collapse: collapse; margin-bottom: 8px; border:1px solid #e2e8f0;">
+          <thead style="background:#f8fafc;">
+            <tr>
+              <th style="padding:4px; text-align:left; border-bottom:2px solid #e2e8f0;">Client Name</th><th style="padding:4px; text-align:left; border-bottom:2px solid #e2e8f0;">Description</th><th class="right" style="padding:4px; border-bottom:2px solid #e2e8f0;">Qty</th>
+              ${!isNoMultiply ? '<th class="right" style="padding:4px; border-bottom:2px solid #e2e8f0;">Unit Price (₦)</th>' : ''}
+              <th class="right" style="padding:4px; border-bottom:2px solid #e2e8f0;">Total (₦)</th><th class="right" style="padding:4px; border-bottom:2px solid #e2e8f0;">Balance (₦)</th><th style="padding:4px; text-align:left; border-bottom:2px solid #e2e8f0;">Payment Mode</th><th style="padding:4px; text-align:left; border-bottom:2px solid #e2e8f0;">Delivery</th><th style="padding:4px; text-align:left; border-bottom:2px solid #e2e8f0;">Note</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>`;
+      }).join("")}
+      
+
+
+      ${l.copRows.length > 0 ? `
+        <h3 style="font-size: 10px; text-transform: uppercase; margin: 8px 0 4px; color: #666; border-bottom: 1px solid #ccc; padding-bottom: 2px;">Cost of Production (COP)</h3>
+        <table style="width:100%; border-collapse: collapse; margin-bottom: 12px; font-size: 10px;">
+          <tbody>
+            ${l.copRows.map((e: any) => `<tr><td style="padding:2px; border-bottom:1px dashed #eee; width: 20%;">${fmtDate(e.entry_date || e.created_at)}</td><td style="padding:2px; border-bottom:1px dashed #eee; width: 60%;">${e.item || "—"} ${e.note ? `(${e.note})` : ''}</td><td style="text-align:right; padding:2px; border-bottom:1px dashed #eee; width: 20%; font-weight: bold;">₦${fmt(e.amount)}</td></tr>`).join("")}
+          </tbody>
+        </table>
+      ` : ''}
+
+    </div>
+    `;
+  }).join("");
+
+  const grandRevenue = ledgers.reduce((s: number, l: any) => s + l.totalRevenue, 0);
+  const grandCop = ledgers.reduce((s: number, l: any) => s + l.totalCop, 0);
+  const grandExpenses = allExpenses ? allExpenses.reduce((s: number, e: any) => s + Number(e.amount || 0), 0) : 0;
+  const grandIncome = allIncome ? allIncome.reduce((s: number, e: any) => s + Number(e.amount || 0), 0) : 0;
+  const grandNetProfit = grandRevenue - grandCop - grandExpenses + grandIncome;
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${BUSINESS_NAME} — Global Summary</title>
+  <style>${PDF_BASE_STYLES}</style></head><body>
+    <div class="biz-header"><h1>${BUSINESS_NAME}</h1><div class="biz-sub">Global Operations Summary</div></div>
+    <div class="meta">Period: ${fmtDate(from)} — ${fmtDate(to)} · Generated: ${new Date().toLocaleString("en-GB")}</div>
+    
+    <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 16px; margin-bottom: 32px;">
+      <h2 style="font-size: 16px; text-align: center; margin-top: 0; margin-bottom: 16px;">Consolidated Totals</h2>
+      <div class="summary-grid">
+        <div class="sum-card"><div class="lbl">Total Revenue</div><div class="val" style="font-size: 20px;">₦${fmt(grandRevenue)}</div></div>
+        <div class="sum-card"><div class="lbl">Total COP</div><div class="val amber" style="font-size: 20px;">₦${fmt(grandCop)}</div></div>
+        <div class="sum-card"><div class="lbl">Total Expenses</div><div class="val amber" style="font-size: 20px;">₦${fmt(grandExpenses)}</div></div>
+        <div class="sum-card"><div class="lbl">Total Income</div><div class="val green" style="font-size: 20px;">₦${fmt(grandIncome)}</div></div>
+        <div class="sum-card" style="grid-column: span 2;"><div class="lbl">Consolidated Net Profit</div><div class="val ${grandNetProfit >= 0 ? 'green' : 'red'}" style="font-size: 24px;">₦${fmt(grandNetProfit)}</div></div>
+      </div>
+    </div>
+
+    ${ledgersHtml}
+    
+    ${allExpenses && allExpenses.length > 0 ? `
+      <div style="margin-bottom: 24px; page-break-inside: avoid;">
+        <h2 style="font-size:14px; text-transform:uppercase; margin-bottom: 8px; border-bottom: 2px solid #1a2535; padding-bottom: 4px;">Global Expenses</h2>
+        <table style="width:100%; border-collapse: collapse; margin-bottom: 12px; font-size: 10px;">
+          <tbody>
+            ${allExpenses.map((e: any) => `<tr><td style="padding:2px; border-bottom:1px dashed #eee; width: 20%;">${fmtDate(e.entry_date || e.created_at)}</td><td style="padding:2px; border-bottom:1px dashed #eee; width: 60%;">${e.description || e.item || "—"}</td><td style="text-align:right; padding:2px; border-bottom:1px dashed #eee; width: 20%; font-weight: bold; color: #d97706;">₦${fmt(e.amount)}</td></tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+    ` : ''}
+
+    ${allIncome && allIncome.length > 0 ? `
+      <div style="margin-bottom: 24px; page-break-inside: avoid;">
+        <h2 style="font-size:14px; text-transform:uppercase; margin-bottom: 8px; border-bottom: 2px solid #1a2535; padding-bottom: 4px;">Global Income</h2>
+        <table style="width:100%; border-collapse: collapse; margin-bottom: 12px; font-size: 10px;">
+          <tbody>
+            ${allIncome.map((e: any) => `<tr><td style="padding:2px; border-bottom:1px dashed #eee; width: 20%;">${fmtDate(e.entry_date || e.created_at)}</td><td style="padding:2px; border-bottom:1px dashed #eee; width: 60%;">${e.description || e.item || "—"}</td><td style="text-align:right; padding:2px; border-bottom:1px dashed #eee; width: 20%; font-weight: bold; color: #16a34a;">₦${fmt(e.amount)}</td></tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+    ` : ''}
+    
     <script>window.onload=()=>window.print()</script>
   </body></html>`;
   

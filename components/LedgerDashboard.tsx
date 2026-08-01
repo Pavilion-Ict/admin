@@ -62,6 +62,14 @@ export default function LedgerDashboard({
 
   const [selectedEntries, setSelectedEntries] = useState<Set<string>>(new Set());
 
+  const uniqueClientNames = useMemo(() => {
+    const names = new Set<string>();
+    initialEntries.forEach(e => {
+      if (e.client_name) names.add(e.client_name.trim());
+    });
+    return Array.from(names).sort();
+  }, [initialEntries]);
+
   const toggleSelection = (id: string) => {
     const newSet = new Set(selectedEntries);
     if (newSet.has(id)) newSet.delete(id);
@@ -133,7 +141,11 @@ export default function LedgerDashboard({
       : sum + (Number(e.qty) * Number(e.price));
   }, 0);
   const totalCop = filteredCopEntries.reduce((sum, e) => sum + Number(e.amount), 0);
-  const netProfit = totalRevenue - totalCop;
+  
+  const grossProfit = totalRevenue - totalCop;
+  // Net profit is handled globally now
+
+  const pathName = `/${tableName.replace('_ledger', '').replace('_', '-')}`;
 
   const handleExportPDF = () => {
     exportLedgerPDF({
@@ -190,7 +202,7 @@ export default function LedgerDashboard({
                       if (copEntryToDelete) await deleteCopEntry(tableName, copEntryToDelete);
                       setEntryToDelete(null);
                       setCopEntryToDelete(null);
-                    } catch (e) {
+                        } catch (e) {
                       alert("Failed to delete entry");
                     } finally {
                       setIsDeleting(false);
@@ -276,10 +288,10 @@ export default function LedgerDashboard({
           <h3 className="text-gray-500 font-bold text-xs tracking-wider uppercase mb-1">Total COP</h3>
           <p className="text-2xl font-bold text-brand-yellow">₦{totalCop.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
         </div>
-        <div className={`bg-white border-l-4 ${netProfit >= 0 ? 'border-green-500' : 'border-red-500'} p-5 rounded-2xl shadow-sm flex flex-col justify-center`}>
-          <h3 className="text-gray-500 font-bold text-xs tracking-wider uppercase mb-1">Net Profit</h3>
-          <p className={`text-2xl font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            ₦{netProfit.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+        <div className={`bg-white border-l-4 ${grossProfit >= 0 ? 'border-green-500' : 'border-red-500'} p-5 rounded-2xl shadow-sm flex flex-col justify-center`}>
+          <h3 className="text-gray-500 font-bold text-xs tracking-wider uppercase mb-1">Gross Profit</h3>
+          <p className={`text-2xl font-bold ${grossProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            ₦{grossProfit.toLocaleString('en-US', { minimumFractionDigits: 2 })}
           </p>
         </div>
         <div className="bg-white border-l-4 border-gray-300 p-5 rounded-2xl shadow-sm flex flex-col justify-center">
@@ -290,9 +302,10 @@ export default function LedgerDashboard({
 
       {/* Forms */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
-        <LedgerForm tableName={tableName} />
+        <LedgerForm tableName={tableName} clientNames={uniqueClientNames} />
         <CopForm tableName={tableName} />
       </div>
+
 
       {/* Filters & Search */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
@@ -355,7 +368,7 @@ export default function LedgerDashboard({
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Description</th>
                 <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Qty</th>
                 <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Price</th>
-                <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Total</th>
+                {!title.includes("Digital Prints") && <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Total</th>}
                 <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Balance</th>
                 <th className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Payment</th>
                 <th className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Delivery</th>
@@ -384,7 +397,7 @@ export default function LedgerDashboard({
                       <td className="px-6 py-4 text-sm text-gray-600 max-w-[200px] truncate">{entry.description}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">{entry.qty}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">₦{Number(entry.price).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900">₦{total.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                      {!title.includes("Digital Prints") && <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900">₦{total.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>}
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-500">₦{Number(entry.balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
                         <span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full 
@@ -492,7 +505,6 @@ export default function LedgerDashboard({
           </table>
         </div>
       </div>
-
     </div>
   );
 }

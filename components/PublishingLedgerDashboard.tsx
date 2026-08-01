@@ -83,6 +83,14 @@ export default function PublishingLedgerDashboard({
     setSelectedEntries(newSet);
   };
 
+  const uniqueClientNames = useMemo(() => {
+    const names = new Set<string>();
+    initialRows.forEach((e: any) => {
+      if (e.client_name) names.add(e.client_name.trim());
+    });
+    return Array.from(names).sort();
+  }, [initialRows]);
+
   const filteredEntries = useMemo(() => {
     return initialRows.filter((entry: any) => {
       if (paymentFilter !== "all" && entry.payment_method !== paymentFilter) return false;
@@ -112,22 +120,34 @@ export default function PublishingLedgerDashboard({
     });
   }, [initialRows, searchQuery, paymentFilter, deliveryFilter, dateFilter]);
 
+  const filteredStockLogs = useMemo(() => {
+    return initialStockLogs.filter((entry: any) => {
+      if (dateFilter) {
+        const entryDate = (entry.date ? new Date(entry.date) : new Date(entry.created_at)).toISOString().split('T')[0];
+        if (entryDate !== dateFilter) return false;
+      }
+      return true;
+    });
+  }, [initialStockLogs, dateFilter]);
+
   const totals = useMemo(() => {
     let revenue = 0;
     let cop = 0;
-    let exp = 0;
+    let inlineExp = 0;
     
     filteredEntries.forEach((r: any) => {
       revenue += Number(r.price) || 0;
-      exp += Number(r.expenses) || 0;
+      inlineExp += Number(r.expenses) || 0;
       const unitCop = (catalogue[r.description] || { cop: 0 }).cop;
       cop += unitCop * (Number(r.qty) || 0);
     });
 
-    return { revenue, cop, exp };
+
+    return { revenue, cop, exp: inlineExp, inc: 0 };
   }, [filteredEntries, catalogue]);
 
-  const netProfit = totals.revenue - totals.cop - totals.exp;
+  const grossProfit = totals.revenue - totals.cop;
+  // Net profit handled globally
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -242,7 +262,7 @@ export default function PublishingLedgerDashboard({
         />
       )}
 
-      {entryToDelete && (
+      {(entryToDelete) && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="p-6 text-center">
@@ -256,7 +276,9 @@ export default function PublishingLedgerDashboard({
               <div className="flex gap-3">
                 <button 
                   disabled={isDeleting}
-                  onClick={() => setEntryToDelete(null)}
+                  onClick={() => {
+                    setEntryToDelete(null);
+                  }}
                   className="flex-1 py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-colors"
                 >
                   Cancel
@@ -266,9 +288,9 @@ export default function PublishingLedgerDashboard({
                   onClick={async () => {
                     setIsDeleting(true);
                     try {
-                      await deleteLedgerEntry("publishing_ledger", entryToDelete);
+                      if (entryToDelete) await deleteLedgerEntry("publishing_ledger", entryToDelete);
                       setEntryToDelete(null);
-                    } catch (e) {
+                        } catch (e) {
                       alert("Failed to delete entry");
                     } finally {
                       setIsDeleting(false);
@@ -340,7 +362,7 @@ export default function PublishingLedgerDashboard({
           </button>
           <button onClick={() => exportPublishingPDF({
             filteredRows: filteredEntries, catalogue, title,
-            totalRevenue: totals.revenue, totalCop: totals.cop, totalExpenses: totals.exp,
+            totalRevenue: totals.revenue, totalCop: totals.cop, totalExpenses: totals.exp, stockLogs: filteredStockLogs,
             filterDate: searchQuery || paymentFilter !== "all" || deliveryFilter !== "all" || dateFilter ? "Filtered" : ""
           })} className="px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-sm hover:bg-primary-hover flex items-center gap-2 h-full min-h-[44px]">
             <span>⬇</span> Export PDF
@@ -358,14 +380,10 @@ export default function PublishingLedgerDashboard({
           <h3 className="text-gray-500 font-bold text-xs tracking-wider uppercase mb-1">Total COP</h3>
           <p className="text-2xl font-bold text-brand-yellow">₦{totals.cop.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
         </div>
-        <div className="bg-white border-l-4 border-orange-400 p-5 rounded-2xl shadow-sm flex flex-col justify-center">
-          <h3 className="text-gray-500 font-bold text-xs tracking-wider uppercase mb-1">Expenses</h3>
-          <p className="text-2xl font-bold text-orange-500">₦{totals.exp.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-        </div>
-        <div className={`bg-white border-l-4 ${netProfit >= 0 ? 'border-green-500' : 'border-red-500'} p-5 rounded-2xl shadow-sm flex flex-col justify-center`}>
-          <h3 className="text-gray-500 font-bold text-xs tracking-wider uppercase mb-1">Net Profit</h3>
-          <p className={`text-2xl font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            ₦{netProfit.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+        <div className={`bg-white border-l-4 ${grossProfit >= 0 ? 'border-green-500' : 'border-red-500'} p-5 rounded-2xl shadow-sm flex flex-col justify-center`}>
+          <h3 className="text-gray-500 font-bold text-xs tracking-wider uppercase mb-1">Gross Profit</h3>
+          <p className={`text-2xl font-bold ${grossProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            ₦{grossProfit.toLocaleString('en-US', { minimumFractionDigits: 2 })}
           </p>
         </div>
         <div className="bg-white border-l-4 border-gray-300 p-5 rounded-2xl shadow-sm flex flex-col justify-center">
@@ -388,7 +406,12 @@ export default function PublishingLedgerDashboard({
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Client Name</label>
-                <input type="text" required className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900" value={clientName} onChange={(e) => setClientName(e.target.value)} />
+                <input type="text" required list="publishing-clients" className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900" value={clientName} onChange={(e) => setClientName(e.target.value)} />
+                <datalist id="publishing-clients">
+                  {uniqueClientNames.map((name) => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
               </div>
               
               <div>
@@ -655,6 +678,9 @@ export default function PublishingLedgerDashboard({
           </table>
         </div>
       </div>
+
+
+
     </div>
   );
 }

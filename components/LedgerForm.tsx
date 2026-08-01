@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { addLedgerEntry } from "@/app/actions/ledger";
 
-export default function LedgerForm({ tableName }: { tableName: string }) {
+export default function LedgerForm({ tableName, clientNames = [] }: { tableName: string, clientNames?: string[] }) {
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
   const [clientName, setClientName] = useState("");
   const [description, setDescription] = useState("");
@@ -71,10 +71,16 @@ export default function LedgerForm({ tableName }: { tableName: string }) {
           <input
             type="text"
             required
+            list={`clients-${tableName}`}
             className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900"
             value={clientName}
             onChange={(e) => setClientName(e.target.value)}
           />
+          <datalist id={`clients-${tableName}`}>
+            {clientNames.map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
         </div>
         
         <div className="sm:col-span-2 lg:col-span-2">
