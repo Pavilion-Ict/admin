@@ -12,12 +12,10 @@ export async function addExpense(data: any, path: string) {
   const { error } = await supabase
     .from('company_expenses')
     .insert([{
-      ledger_type: 'Global',
       entry_date: data.entry_date,
       category: data.category,
       description: data.description,
       amount: data.amount,
-      
     }]);
 
   if (error) {
@@ -44,12 +42,10 @@ export async function addIncome(data: any, path: string) {
   const { error } = await supabase
     .from('company_income')
     .insert([{
-      ledger_type: 'Global',
       entry_date: data.entry_date,
       source: data.source,
       description: data.description,
       amount: data.amount,
-      
     }]);
 
   if (error) {

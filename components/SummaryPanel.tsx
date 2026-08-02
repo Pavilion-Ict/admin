@@ -6,11 +6,13 @@ import { exportSummaryPDF } from "@/lib/pdfUtils";
 export default function SummaryPanel({ 
   rows, 
   copRows, 
+  stockLogs = [],
   onClose,
   title
 }: { 
   rows: any[]; 
   copRows: any[]; 
+  stockLogs?: any[];
   onClose: () => void;
   title: string;
 }) {
@@ -18,7 +20,8 @@ export default function SummaryPanel({
   
   const allDates = [
     ...rows.map(r => r.entry_date || r.created_at.split('T')[0]),
-    ...copRows.map(r => r.entry_date || r.created_at.split('T')[0])
+    ...copRows.map(r => r.entry_date || r.created_at.split('T')[0]),
+    ...(stockLogs || []).map(r => r.date || r.created_at?.split('T')[0])
   ].filter(Boolean).sort();
   const minDate = allDates[0] || TODAY;
   const maxDate = allDates[allDates.length - 1] || TODAY;
@@ -40,6 +43,13 @@ export default function SummaryPanel({
     });
   }, [copRows, from, to]);
 
+  const stockInRange = useMemo(() => {
+    return (stockLogs || []).filter(s => {
+      const d = s.date || s.created_at?.split('T')[0];
+      return d >= from && d <= to;
+    });
+  }, [stockLogs, from, to]);
+
   const byDate = useMemo(() => {
     const map: Record<string, any[]> = {};
     inRange.forEach(r => { 
@@ -47,8 +57,12 @@ export default function SummaryPanel({
       if (!map[d]) map[d] = []; 
       map[d].push(r); 
     });
+    stockInRange.forEach(s => {
+      const d = s.date || s.created_at?.split('T')[0];
+      if (!map[d]) map[d] = [];
+    });
     return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0]));
-  }, [inRange]);
+  }, [inRange, stockInRange]);
 
   const totalRevenue = inRange.reduce((s, r) => {
     return (title.includes("Publishing") || title.includes("Digital Prints"))
@@ -66,6 +80,7 @@ export default function SummaryPanel({
       totalCop,
       grossProfit,
       copRows: copInRange,
+      stockLogs: stockInRange,
       from,
       to,
       title
@@ -125,45 +140,71 @@ export default function SummaryPanel({
 
           {/* By Date Blocks */}
           {byDate.length === 0 && (
-            <div className="text-center py-12 text-gray-400 font-medium">No sales found in this date range.</div>
+            <div className="text-center py-12 text-gray-400 font-medium">No sales or stock records found in this date range.</div>
           )}
 
           {byDate.map(([date, dRows]) => {
+            const isNoMultiply = title.includes("Publishing") || title.includes("Digital Prints");
             const rev = dRows.reduce((s, r) => {
-              return (title.includes("Publishing") || title.includes("Digital Prints"))
+              return isNoMultiply
                 ? s + Number(r.price) 
                 : s + (Number(r.qty) * Number(r.price));
             }, 0);
+            const dayStock = stockInRange.find(s => (s.date || s.created_at?.split('T')[0]) === date);
+
             return (
               <div key={date} className="mb-6 rounded-xl border border-gray-200 overflow-hidden shadow-sm">
                 <div className="bg-gray-100 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
                   <h3 className="font-bold text-gray-800">{new Date(date).toLocaleDateString()}</h3>
                   <span className="text-sm font-medium text-gray-600">{dRows.length} entries &middot; <span className="font-bold text-gray-900">₦{rev.toLocaleString('en-US', {minimumFractionDigits: 2})}</span></span>
                 </div>
-                <div className="overflow-x-auto bg-white">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Client</th>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Description</th>
-                        <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Qty</th>
-                        <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Total (₦)</th>
-                        <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase">Payment</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {dRows.map((r) => (
-                        <tr key={r.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-2.5 text-sm font-medium text-gray-900">{r.client_name}</td>
-                          <td className="px-4 py-2.5 text-sm text-gray-600">{r.description}</td>
-                          <td className="px-4 py-2.5 text-sm text-right text-gray-900">{r.qty}</td>
-                          <td className="px-4 py-2.5 text-sm text-right font-bold text-gray-900">{(r.qty * r.price).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
-                          <td className="px-4 py-2.5 text-sm text-center capitalize text-gray-600">{r.payment_method}</td>
+                {dRows.length > 0 && (
+                  <div className="overflow-x-auto bg-white">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Client</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Description</th>
+                          <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Qty</th>
+                          <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Total (₦)</th>
+                          <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase">Payment</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {dRows.map((r) => (
+                          <tr key={r.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-2.5 text-sm font-medium text-gray-900">{r.client_name}</td>
+                            <td className="px-4 py-2.5 text-sm text-gray-600">{r.description}</td>
+                            <td className="px-4 py-2.5 text-sm text-right text-gray-900">{r.qty}</td>
+                            <td className="px-4 py-2.5 text-sm text-right font-bold text-gray-900">{(isNoMultiply ? Number(r.price) : Number(r.qty) * Number(r.price)).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                            <td className="px-4 py-2.5 text-sm text-center capitalize text-gray-600">{r.payment_method}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {dayStock && (
+                  <div className="bg-amber-50/40 border-t border-amber-200/60 p-4">
+                    <div className="text-xs font-bold text-amber-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <span>📦</span> Daily Stock Log ({new Date(date).toLocaleDateString()})
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                      <div className="bg-white p-2.5 rounded border border-amber-100 shadow-sm">
+                        <span className="text-gray-500 font-bold block text-[10px] uppercase mb-1">Opening Stock</span>
+                        <p className="text-gray-900 whitespace-pre-wrap">{dayStock.opening_stock || "—"}</p>
+                      </div>
+                      <div className="bg-white p-2.5 rounded border border-amber-100 shadow-sm">
+                        <span className="text-gray-500 font-bold block text-[10px] uppercase mb-1">Additional Notes</span>
+                        <p className="text-gray-900 whitespace-pre-wrap">{dayStock.additional_notes || "—"}</p>
+                      </div>
+                      <div className="bg-white p-2.5 rounded border border-amber-100 shadow-sm">
+                        <span className="text-gray-500 font-bold block text-[10px] uppercase mb-1">Closing Stock</span>
+                        <p className="text-gray-900 whitespace-pre-wrap">{dayStock.closing_stock || "—"}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}

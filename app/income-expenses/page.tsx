@@ -16,7 +16,7 @@ export default async function IncomeExpensePage() {
   // Fetch Expenses
   const { data: expenseEntries, error: expenseError } = await supabase
     .from("company_expenses")
-    .select("*, users:created_by(username)")
+    .select("*")
     .order("created_at", { ascending: false });
 
   if (expenseError) console.error("Error fetching expenses:", expenseError);
@@ -24,7 +24,7 @@ export default async function IncomeExpensePage() {
   // Fetch Income
   const { data: incomeEntries, error: incomeError } = await supabase
     .from("company_income")
-    .select("*, users:created_by(username)")
+    .select("*")
     .order("created_at", { ascending: false });
 
   if (incomeError) console.error("Error fetching income:", incomeError);

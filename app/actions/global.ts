@@ -40,7 +40,7 @@ export async function getGlobalSummaryData(from: string, to: string) {
   }
 
   // Stock logs (publishing)
-  const { data: stockLogs } = await supabase.from("publishing_stock_log").select("*").gte('date', from).lte('date', to);
+  const { data: stockLogs } = await supabase.from("publishing_stock").select("*").gte('date', from).lte('date', to);
   if (stockLogs) allStockLogs = stockLogs;
 
   // Expenses & Income

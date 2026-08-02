@@ -170,7 +170,7 @@ export function exportLedgerPDF({ filteredRows, totalRevenue, totalCop, copRows,
   openPrintWindow(html);
 }
 
-export function exportPublishingPDF({ filteredRows, catalogue, totalRevenue, totalCop, filterDate, title }: any) {
+export function exportPublishingPDF({ filteredRows, catalogue, totalRevenue, totalCop, filterDate, title, stockLogs = [] }: any) {
   const grossProfit = totalRevenue - totalCop;
   const rowsHtml = filteredRows.map((r: any) => {
     const unitCop = (catalogue[r.description] || { cop: 0 }).cop;
@@ -186,8 +186,32 @@ export function exportPublishingPDF({ filteredRows, catalogue, totalRevenue, tot
     </tr>`;
   }).join("");
 
-  const today = new Date().toISOString().slice(0, 10);
-  
+  const stockHtml = stockLogs && stockLogs.length > 0 ? `
+    <div style="margin-top:24px; page-break-inside: avoid;">
+      <h2 style="font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;color:#333;">Daily Stock Logs</h2>
+      <table style="width:100%; border-collapse: collapse; margin-bottom: 24px;">
+        <thead>
+          <tr>
+            <th style="width: 15%;">Date</th>
+            <th style="width: 28%;">Opening Stock</th>
+            <th style="width: 29%;">Additional Notes</th>
+            <th style="width: 28%;">Closing Stock</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${stockLogs.map((s: any) => `
+            <tr>
+              <td style="font-weight: bold;">${fmtDate(s.date || s.created_at)}</td>
+              <td style="white-space: pre-wrap;">${s.opening_stock || "—"}</td>
+              <td style="white-space: pre-wrap;">${s.additional_notes || "—"}</td>
+              <td style="white-space: pre-wrap;">${s.closing_stock || "—"}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  ` : '';
+
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${BUSINESS_NAME} — ${title} Ledger</title>
   <style>${PDF_BASE_STYLES}</style></head><body>
     <div class="biz-header"><h1>${BUSINESS_NAME}</h1><div class="biz-sub">${title} Services — Sales Ledger</div></div>
@@ -205,17 +229,21 @@ export function exportPublishingPDF({ filteredRows, catalogue, totalRevenue, tot
     </tr></thead><tbody>${rowsHtml}</tbody>
     </table>
     
+    ${stockHtml}
+
     <script>window.onload=()=>window.print()</script>
   </body></html>`;
 
   openPrintWindow(html);
 }
 
-export function exportSummaryPDF({ byDate, inRange, totalRevenue, totalCop, grossProfit, copRows, from, to, title }: any) {
+export function exportSummaryPDF({ byDate, inRange, totalRevenue, totalCop, grossProfit, copRows, stockLogs = [], from, to, title }: any) {
   const isNoMultiply = title.toLowerCase().includes('publishing') || title.toLowerCase().includes('digital prints');
   
   const dayBlocks = byDate.map(([date, dRows]: any) => {
     const rev = dRows.reduce((s: any, r: any) => s + (isNoMultiply ? fmtN(r.price) : fmtN(r.price) * fmtN(r.qty)), 0);
+    const dayStock = stockLogs?.find((s: any) => (s.date || s.created_at?.split('T')[0]) === date);
+
     const rowsHtml = dRows.map((r: any) => `<tr>
       <td>${r.client_name || "—"}</td><td>${r.description || "—"}</td>
       <td class="right">${r.qty || "—"}</td>
@@ -225,21 +253,47 @@ export function exportSummaryPDF({ byDate, inRange, totalRevenue, totalCop, gros
       <td style="text-transform: capitalize;">${r.payment_method}</td><td style="text-transform: capitalize;">${r.delivery_method}</td>
       <td>${r.note || "—"}</td>
     </tr>`).join("");
+
     return `<div style="margin-bottom:18px;page-break-inside:avoid;">
       <div style="background:#1a2535;color:#fff;padding:7px 10px;border-radius:4px 4px 0 0;display:flex;justify-content:space-between;">
         <b>${fmtDate(date)}</b>
         <span style="font-size:10px;">Revenue: ₦${fmt(rev)} · ${dRows.length} entries</span>
       </div>
-      <table style="width:100%; border-collapse: collapse; margin-bottom: 24px;">
-      <thead>
-        <tr>
-          <th>Client Name</th><th>Description</th><th class="right">Qty</th>
-          ${!isNoMultiply ? '<th class="right">Unit Price (₦)</th>' : ''}
-          <th class="right">Total (₦)</th><th class="right">Balance (₦)</th><th>Payment Mode</th><th>Delivery</th><th>Note</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${rowsHtml}</tbody></table>
+      ${dRows.length > 0 ? `
+        <table style="width:100%; border-collapse: collapse; margin-bottom: 8px;">
+        <thead>
+          <tr>
+            <th>Client Name</th><th>Description</th><th class="right">Qty</th>
+            ${!isNoMultiply ? '<th class="right">Unit Price (₦)</th>' : ''}
+            <th class="right">Total (₦)</th><th class="right">Balance (₦)</th><th>Payment Mode</th><th>Delivery</th><th>Note</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+        </table>
+      ` : ''}
+      ${dayStock ? `
+        <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:4px;padding:6px 10px;margin-top:4px;margin-bottom:10px;font-size:9.5px;">
+          <div style="font-weight:bold;color:#1e293b;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;font-size:9px;">📦 Daily Stock Log (${fmtDate(date)})</div>
+          <table style="width:100%;border-collapse:collapse;margin:0;font-size:9px;">
+            <thead>
+              <tr style="background:#e2e8f0;color:#334155;">
+                <th style="padding:3px 6px;text-align:left;border:none;width:33%;">Opening Stock</th>
+                <th style="padding:3px 6px;text-align:left;border:none;width:34%;">Additional Notes</th>
+                <th style="padding:3px 6px;text-align:left;border:none;width:33%;">Closing Stock</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding:4px 6px;vertical-align:top;border:none;white-space:pre-wrap;background:#fff;">${dayStock.opening_stock || "—"}</td>
+                <td style="padding:4px 6px;vertical-align:top;border:none;white-space:pre-wrap;background:#fff;">${dayStock.additional_notes || "—"}</td>
+                <td style="padding:4px 6px;vertical-align:top;border:none;white-space:pre-wrap;background:#fff;">${dayStock.closing_stock || "—"}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      ` : ''}
     </div>`;
   }).join("");
 
@@ -259,13 +313,15 @@ export function exportSummaryPDF({ byDate, inRange, totalRevenue, totalCop, gros
       <div class="sum-card"><div class="lbl">Gross Profit</div><div class="val ${grossProfit >= 0 ? "green" : "red"}">₦${fmt(grossProfit)}</div></div>
     </div>
     ${dayBlocks}
-    <div style="margin-top:20px;">
-      <h2 style="font-size:12px;text-transform:uppercase;margin:0 0 6px;">Production Cost (COP)</h2>
-      <table><thead><tr><th>Date</th><th>Cost Item</th><th>Note</th><th class="right">Amount</th></tr></thead>
-      <tbody>${copHtml}</tbody>
-      <tfoot><tr class="tfoot"><td colspan="3">Total COP</td><td class="right amber">₦${fmt(totalCop)}</td></tr></tfoot>
-      </table>
-    </div>
+    ${copRows.length > 0 ? `
+      <div style="margin-top:20px;">
+        <h2 style="font-size:12px;text-transform:uppercase;margin:0 0 6px;">Production Cost (COP)</h2>
+        <table><thead><tr><th>Date</th><th>Cost Item</th><th>Note</th><th class="right">Amount</th></tr></thead>
+        <tbody>${copHtml}</tbody>
+        <tfoot><tr class="tfoot"><td colspan="3">Total COP</td><td class="right amber">₦${fmt(totalCop)}</td></tr></tfoot>
+        </table>
+      </div>
+    ` : ''}
     <script>window.onload=()=>window.print()</script>
   </body></html>`;
   
@@ -285,12 +341,14 @@ export function exportGlobalSummaryPDF({ ledgers, allExpenses, allIncome, from, 
         <div class="sum-card"><div class="lbl">Gross Profit</div><div class="val ${l.netProfit >= 0 ? "green" : "red"}">₦${fmt(l.netProfit)}</div></div>
       </div>
       <div style="font-size: 11px; color: #555; margin-bottom: 8px;">
-        ${l.inRange.length} sales · ${l.copRows.length} COP entries
+        ${l.inRange.length} sales · ${l.copRows.length} COP entries ${l.stockLogs?.length ? `· ${l.stockLogs.length} stock logs` : ''}
       </div>
       
       ${l.byDate.map(([date, dRows]: any) => {
         const isNoMultiply = l.title.toLowerCase().includes('publishing') || l.title.toLowerCase().includes('digital prints');
         const rev = dRows.reduce((s: any, r: any) => s + (isNoMultiply ? fmtN(r.price) : fmtN(r.price) * fmtN(r.qty)), 0);
+        const dayStock = l.stockLogs?.find((s: any) => (s.date || s.created_at?.split('T')[0]) === date);
+
         const rowsHtml = dRows.map((r: any) => `<tr>
           <td style="padding:4px; border-bottom:1px solid #eee;">${r.client_name || "—"}</td><td style="padding:4px; border-bottom:1px solid #eee;">${r.description || "—"}</td>
           <td class="right" style="padding:4px; border-bottom:1px solid #eee;">${r.qty || "—"}</td>
@@ -305,21 +363,42 @@ export function exportGlobalSummaryPDF({ ledgers, allExpenses, allIncome, from, 
             <b>${fmtDate(date)}</b>
             <span>Revenue: ₦${fmt(rev)} · ${dRows.length} entries</span>
           </div>
-          <table style="width:100%; border-collapse: collapse; margin-bottom: 8px; border:1px solid #e2e8f0;">
-          <thead style="background:#f8fafc;">
-            <tr>
-              <th style="padding:4px; text-align:left; border-bottom:2px solid #e2e8f0;">Client Name</th><th style="padding:4px; text-align:left; border-bottom:2px solid #e2e8f0;">Description</th><th class="right" style="padding:4px; border-bottom:2px solid #e2e8f0;">Qty</th>
-              ${!isNoMultiply ? '<th class="right" style="padding:4px; border-bottom:2px solid #e2e8f0;">Unit Price (₦)</th>' : ''}
-              <th class="right" style="padding:4px; border-bottom:2px solid #e2e8f0;">Total (₦)</th><th class="right" style="padding:4px; border-bottom:2px solid #e2e8f0;">Balance (₦)</th><th style="padding:4px; text-align:left; border-bottom:2px solid #e2e8f0;">Payment Mode</th><th style="padding:4px; text-align:left; border-bottom:2px solid #e2e8f0;">Delivery</th><th style="padding:4px; text-align:left; border-bottom:2px solid #e2e8f0;">Note</th>
-            </tr>
-          </thead>
-          <tbody>${rowsHtml}</tbody>
-          </table>
+          ${dRows.length > 0 ? `
+            <table style="width:100%; border-collapse: collapse; margin-bottom: 8px; border:1px solid #e2e8f0;">
+            <thead style="background:#f8fafc;">
+              <tr>
+                <th style="padding:4px; text-align:left; border-bottom:2px solid #e2e8f0;">Client Name</th><th style="padding:4px; text-align:left; border-bottom:2px solid #e2e8f0;">Description</th><th class="right" style="padding:4px; border-bottom:2px solid #e2e8f0;">Qty</th>
+                ${!isNoMultiply ? '<th class="right" style="padding:4px; border-bottom:2px solid #e2e8f0;">Unit Price (₦)</th>' : ''}
+                <th class="right" style="padding:4px; border-bottom:2px solid #e2e8f0;">Total (₦)</th><th class="right" style="padding:4px; border-bottom:2px solid #e2e8f0;">Balance (₦)</th><th style="padding:4px; text-align:left; border-bottom:2px solid #e2e8f0;">Payment Mode</th><th style="padding:4px; text-align:left; border-bottom:2px solid #e2e8f0;">Delivery</th><th style="padding:4px; text-align:left; border-bottom:2px solid #e2e8f0;">Note</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+            </table>
+          ` : ''}
+          ${dayStock ? `
+            <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:4px;padding:6px 10px;margin-top:4px;margin-bottom:10px;font-size:9.5px;">
+              <div style="font-weight:bold;color:#1e293b;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;font-size:9px;">📦 Daily Stock Log (${fmtDate(date)})</div>
+              <table style="width:100%;border-collapse:collapse;margin:0;font-size:9px;">
+                <thead>
+                  <tr style="background:#e2e8f0;color:#334155;">
+                    <th style="padding:3px 6px;text-align:left;border:none;width:33%;">Opening Stock</th>
+                    <th style="padding:3px 6px;text-align:left;border:none;width:34%;">Additional Notes</th>
+                    <th style="padding:3px 6px;text-align:left;border:none;width:33%;">Closing Stock</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style="padding:4px 6px;vertical-align:top;border:none;white-space:pre-wrap;background:#fff;">${dayStock.opening_stock || "—"}</td>
+                    <td style="padding:4px 6px;vertical-align:top;border:none;white-space:pre-wrap;background:#fff;">${dayStock.additional_notes || "—"}</td>
+                    <td style="padding:4px 6px;vertical-align:top;border:none;white-space:pre-wrap;background:#fff;">${dayStock.closing_stock || "—"}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          ` : ''}
         </div>`;
       }).join("")}
       
-
-
       ${l.copRows.length > 0 ? `
         <h3 style="font-size: 10px; text-transform: uppercase; margin: 8px 0 4px; color: #666; border-bottom: 1px solid #ccc; padding-bottom: 2px;">Cost of Production (COP)</h3>
         <table style="width:100%; border-collapse: collapse; margin-bottom: 12px; font-size: 10px;">

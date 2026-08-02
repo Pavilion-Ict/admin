@@ -26,9 +26,12 @@ export default function GlobalExportButton() {
       const ledgersData = LEDGERS.map(({ key, title }) => {
         const inRange = data.allSales.filter((r: any) => r.ledger === key);
         const copInRange = data.allCops.filter((r: any) => r.ledger === key);
-        const expensesInRange = data.allExpenses.filter((r: any) => r.ledger_type?.toLowerCase() === title.toLowerCase());
-        const incomeInRange = data.allIncome.filter((r: any) => r.ledger_type?.toLowerCase() === title.toLowerCase());
-        const stockLogsInRange = data.allStockLogs.filter((r: any) => r.ledger_type?.toLowerCase() === title.toLowerCase());
+        const stockLogsInRange = key === 'publishing_ledger'
+          ? (data.allStockLogs || []).filter((s: any) => {
+              const d = s.date || s.created_at?.split('T')[0];
+              return d >= from && d <= to;
+            })
+          : [];
 
         const byDateMap: Record<string, any[]> = {};
         inRange.forEach((r: any) => { 
@@ -36,12 +39,14 @@ export default function GlobalExportButton() {
           if (!byDateMap[d]) byDateMap[d] = []; 
           byDateMap[d].push(r); 
         });
+        stockLogsInRange.forEach((s: any) => {
+          const d = s.date || s.created_at?.split('T')[0];
+          if (!byDateMap[d]) byDateMap[d] = [];
+        });
         const byDate = Object.entries(byDateMap).sort((a, b) => b[0].localeCompare(a[0]));
 
         let totalRevenue = 0;
-        let inlineExpenses = 0;
         inRange.forEach((r: any) => {
-          inlineExpenses += Number(r.expenses || 0);
           if (key === 'publishing_ledger' || key === 'digital_prints_ledger') {
             totalRevenue += Number(r.price || 0);
           } else {
@@ -50,10 +55,7 @@ export default function GlobalExportButton() {
         });
 
         const totalCop = copInRange.reduce((s: number, r: any) => s + Number(r.amount), 0);
-        const standaloneExpenses = expensesInRange.reduce((s: number, r: any) => s + Number(r.amount), 0);
-        const totalExpenses = inlineExpenses + standaloneExpenses;
-        const totalIncome = incomeInRange.reduce((s: number, r: any) => s + Number(r.amount), 0);
-        const netProfit = totalRevenue - totalCop - totalExpenses + totalIncome;
+        const grossProfit = totalRevenue - totalCop;
 
         return {
           title,
@@ -61,15 +63,11 @@ export default function GlobalExportButton() {
           inRange,
           totalRevenue,
           totalCop,
-          totalExpenses,
-          totalIncome,
-          netProfit,
+          netProfit: grossProfit,
           copRows: copInRange,
-          expenses: expensesInRange,
-          income: incomeInRange,
           stockLogs: stockLogsInRange,
         };
-      }).filter(l => l.inRange.length > 0 || l.expenses.length > 0 || l.income.length > 0 || l.stockLogs.length > 0 || l.copRows.length > 0);
+      }).filter(l => l.inRange.length > 0 || l.copRows.length > 0 || l.stockLogs.length > 0);
 
       if (ledgersData.length === 0) {
         alert("No records found in this date range.");
