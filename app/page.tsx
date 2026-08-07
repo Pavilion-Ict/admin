@@ -92,7 +92,7 @@ export default async function AdminPage() {
 
   const summary = await getWeeklySummary();
   const netProfit = summary.totalRev - summary.totalCop - summary.totalExp + summary.totalInc;
-
+  const grossProfit = summary.totalRev + summary.totalInc - summary.totalCop
   return (
     <div className="min-h-screen bg-gray-50/50 p-4 sm:p-8 font-sans">
       <div className="max-w-5xl mx-auto">
@@ -133,6 +133,12 @@ export default async function AdminPage() {
               <h3 className="text-gray-500 font-bold text-xs tracking-wider uppercase mb-1">Net Profit</h3>
               <p className={`text-2xl font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 ₦{netProfit.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className={`bg-white border-l-4 ${grossProfit >= 0 ? 'border-green-500' : 'border-red-500'} p-5 rounded-2xl shadow-sm`}>
+              <h3 className="text-gray-500 font-bold text-xs tracking-wider uppercase mb-1">Gross Profit</h3>
+              <p className={`text-2xl font-bold ${grossProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                ₦{grossProfit.toLocaleString('en-US', { minimumFractionDigits: 2 })}
               </p>
             </div>
           </div>
