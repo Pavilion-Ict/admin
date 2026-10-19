@@ -186,6 +186,73 @@ export function exportPublishingPDF({ filteredRows, catalogue, totalRevenue, tot
     </tr>`;
   }).join("");
 
+  // Aggregate inventory item breakdown
+  const itemMap: Record<string, { name: string; quantity: number; revenue: number; cop: number; unitCop: number }> = {};
+  let totalUnits = 0;
+  filteredRows.forEach((r: any) => {
+    const name = r.description || "Other";
+    const qty = Number(r.qty) || 0;
+    const rev = Number(r.price || 0);
+    const unitCop = (catalogue && catalogue[name]) ? (typeof catalogue[name] === "object" ? fmtN(catalogue[name].cop) : fmtN(catalogue[name])) : 0;
+    const cop = unitCop * qty;
+    if (!itemMap[name]) itemMap[name] = { name, quantity: 0, revenue: 0, cop: 0, unitCop };
+    itemMap[name].quantity += qty;
+    itemMap[name].revenue += rev;
+    itemMap[name].cop += cop;
+    totalUnits += qty;
+  });
+
+  const pubItemSummary = Object.values(itemMap)
+    .map(it => ({
+      ...it,
+      profit: it.revenue - it.cop,
+      sharePct: totalUnits > 0 ? (it.quantity / totalUnits) * 100 : 0
+    }))
+    .sort((a, b) => b.quantity - a.quantity);
+
+  const pubInventoryHtml = pubItemSummary.length > 0 ? `
+    <div style="margin-bottom: 22px; page-break-inside: avoid;">
+      <h2 style="font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px;color:#333;">Inventory Items Breakdown</h2>
+      <table style="width:100%; border-collapse: collapse; margin-bottom: 20px;">
+        <thead>
+          <tr>
+            <th style="width: 28%;">Item / Service Name</th>
+            <th class="right" style="width: 12%;">Qty Sold</th>
+            <th class="right" style="width: 12%;">Share (%)</th>
+            <th class="right" style="width: 12%;">Unit COP</th>
+            <th class="right" style="width: 12%;">Total COP</th>
+            <th class="right" style="width: 12%;">Total Revenue</th>
+            <th class="right" style="width: 12%;">Gross Profit</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${pubItemSummary.map((it: any) => `
+            <tr>
+              <td style="font-weight: 500;">${it.name || "—"}</td>
+              <td class="right" style="font-weight: bold;">${fmt(it.quantity)}</td>
+              <td class="right">${it.sharePct.toFixed(1)}%</td>
+              <td class="right">${it.unitCop > 0 ? fmt(it.unitCop) : "—"}</td>
+              <td class="right amber">₦${fmt(it.cop)}</td>
+              <td class="right" style="font-weight: bold;">₦${fmt(it.revenue)}</td>
+              <td class="right ${it.profit >= 0 ? "green" : "red"}" style="font-weight: bold;">₦${fmt(it.profit)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+        <tfoot>
+          <tr class="tfoot">
+            <td>Total</td>
+            <td class="right">${fmt(totalUnits)}</td>
+            <td class="right">100.0%</td>
+            <td class="right">—</td>
+            <td class="right amber">₦${fmt(pubItemSummary.reduce((s, it) => s + it.cop, 0))}</td>
+            <td class="right">₦${fmt(pubItemSummary.reduce((s, it) => s + it.revenue, 0))}</td>
+            <td class="right ${grossProfit >= 0 ? "green" : "red"}">₦${fmt(grossProfit)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  ` : '';
+
   const stockHtml = stockLogs && stockLogs.length > 0 ? `
     <div style="margin-top:24px; page-break-inside: avoid;">
       <h2 style="font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;color:#333;">Daily Stock Logs</h2>
@@ -222,6 +289,8 @@ export function exportPublishingPDF({ filteredRows, catalogue, totalRevenue, tot
       <div class="sum-card"><div class="lbl">Gross Profit</div><div class="val ${grossProfit >= 0 ? "green" : "red"}">₦${fmt(grossProfit)}</div></div>
     </div>
     
+    ${pubInventoryHtml}
+
     <h2 style="font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px;color:#333;">Publishing Records</h2>
     <table style="width:100%; border-collapse: collapse; margin-bottom: 24px;"><thead><tr>
       <th>Date</th><th>Client</th><th>Service</th><th class="right">Qty</th>
@@ -237,9 +306,100 @@ export function exportPublishingPDF({ filteredRows, catalogue, totalRevenue, tot
   openPrintWindow(html);
 }
 
-export function exportSummaryPDF({ byDate, inRange, totalRevenue, totalCop, grossProfit, copRows, stockLogs = [], from, to, title }: any) {
+export function exportSummaryPDF({ 
+  byDate, 
+  inRange, 
+  totalRevenue, 
+  totalCop, 
+  grossProfit, 
+  copRows, 
+  stockLogs = [], 
+  itemSummary,
+  totalUnitsSold,
+  catalogue,
+  from, 
+  to, 
+  title 
+}: any) {
   const isNoMultiply = title.toLowerCase().includes('publishing') || title.toLowerCase().includes('digital prints');
   
+  let items = itemSummary;
+  if ((!items || items.length === 0) && inRange && inRange.length > 0 && (catalogue || title.toLowerCase().includes("publishing"))) {
+    const map: Record<string, { name: string; quantity: number; revenue: number; cop: number; unitCop: number }> = {};
+    let tUnits = 0;
+    inRange.forEach((r: any) => {
+      const name = r.description || "Other";
+      const qty = Number(r.qty) || 0;
+      const isPub = title.toLowerCase().includes('publishing') || title.toLowerCase().includes('digital prints');
+      const rev = isPub ? fmtN(r.price) : fmtN(r.price) * (qty || 1);
+      let unitCop = 0;
+      if (catalogue && catalogue[name]) {
+        unitCop = typeof catalogue[name] === "object" ? fmtN(catalogue[name].cop) : fmtN(catalogue[name]);
+      }
+      const cop = unitCop * qty;
+      if (!map[name]) map[name] = { name, quantity: 0, revenue: 0, cop: 0, unitCop };
+      map[name].quantity += qty;
+      map[name].revenue += rev;
+      map[name].cop += cop;
+      tUnits += qty;
+    });
+    items = Object.values(map)
+      .map(it => ({
+        ...it,
+        profit: it.revenue - it.cop,
+        sharePct: tUnits > 0 ? (it.quantity / tUnits) * 100 : 0
+      }))
+      .sort((a, b) => b.quantity - a.quantity);
+  }
+
+  const totalUnits = totalUnitsSold ?? (items ? items.reduce((s: number, it: any) => s + (Number(it.quantity) || 0), 0) : 0);
+  const totalItemCop = items ? items.reduce((s: number, it: any) => s + (Number(it.cop) || 0), 0) : 0;
+  const totalItemRev = items ? items.reduce((s: number, it: any) => s + (Number(it.revenue) || 0), 0) : 0;
+  const totalItemProfit = items ? items.reduce((s: number, it: any) => s + (Number(it.profit) || 0), 0) : 0;
+
+  const itemSummaryHtml = items && items.length > 0 ? `
+    <div style="margin-bottom: 22px; page-break-inside: avoid;">
+      <h2 style="font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px;color:#333;">Inventory Items Summary</h2>
+      <table style="width:100%; border-collapse: collapse; margin-bottom: 14px;">
+        <thead>
+          <tr>
+            <th style="width: 28%;">Item / Service Name</th>
+            <th class="right" style="width: 12%;">Qty Sold</th>
+            <th class="right" style="width: 12%;">Share (%)</th>
+            <th class="right" style="width: 12%;">Unit COP</th>
+            <th class="right" style="width: 12%;">Total COP</th>
+            <th class="right" style="width: 12%;">Total Revenue</th>
+            <th class="right" style="width: 12%;">Gross Profit</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map((it: any) => `
+            <tr>
+              <td style="font-weight: 500;">${it.name || "—"}</td>
+              <td class="right" style="font-weight: bold;">${fmt(it.quantity)}</td>
+              <td class="right">${it.sharePct != null ? Number(it.sharePct).toFixed(1) : ((totalUnits > 0 ? (it.quantity / totalUnits) * 100 : 0).toFixed(1))}%</td>
+              <td class="right">${it.unitCop > 0 ? fmt(it.unitCop) : "—"}</td>
+              <td class="right amber">₦${fmt(it.cop)}</td>
+              <td class="right" style="font-weight: bold;">₦${fmt(it.revenue)}</td>
+              <td class="right ${it.profit >= 0 ? "green" : "red"}" style="font-weight: bold;">₦${fmt(it.profit)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+        <tfoot>
+          <tr class="tfoot">
+            <td>Total / Summary</td>
+            <td class="right">${fmt(totalUnits)}</td>
+            <td class="right">100.0%</td>
+            <td class="right">—</td>
+            <td class="right amber">₦${fmt(totalItemCop)}</td>
+            <td class="right">₦${fmt(totalItemRev)}</td>
+            <td class="right ${totalItemProfit >= 0 ? "green" : "red"}">₦${fmt(totalItemProfit)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  ` : '';
+
   const dayBlocks = byDate.map(([date, dRows]: any) => {
     const rev = dRows.reduce((s: any, r: any) => s + (isNoMultiply ? fmtN(r.price) : fmtN(r.price) * fmtN(r.qty)), 0);
     const dayStock = stockLogs?.find((s: any) => (s.date || s.created_at?.split('T')[0]) === date);
@@ -312,6 +472,7 @@ export function exportSummaryPDF({ byDate, inRange, totalRevenue, totalCop, gros
       <div class="sum-card"><div class="lbl">Total COP</div><div class="val amber">₦${fmt(totalCop)}</div></div>
       <div class="sum-card"><div class="lbl">Gross Profit</div><div class="val ${grossProfit >= 0 ? "green" : "red"}">₦${fmt(grossProfit)}</div></div>
     </div>
+    ${itemSummaryHtml}
     ${dayBlocks}
     ${copRows.length > 0 ? `
       <div style="margin-top:20px;">

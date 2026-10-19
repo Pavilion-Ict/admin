@@ -258,6 +258,7 @@ export default function PublishingLedgerDashboard({
             entry_date: r.entry_date
           }))} 
           stockLogs={initialStockLogs || []}
+          catalogue={catalogue}
           onClose={() => setShowSummary(false)} 
           title={title}
         />

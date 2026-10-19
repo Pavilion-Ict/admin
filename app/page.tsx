@@ -45,6 +45,9 @@ async function getWeeklySummary() {
   const { data: catData } = await supabase.from("publishing_catalogue").select("*");
   const catMap = (catData || []).reduce((acc: any, c: any) => ({ ...acc, [c.service_name]: c.cop_rate }), {});
 
+  const itemMap: Record<string, { quantity: number; revenue: number; cop: number }> = {};
+  let totalUnitsSold = 0;
+
   for (const { table, copTable } of ledgers) {
     const { data: sales } = await supabase.from(table).select("*").gte('entry_date', startPrevStr).order('entry_date');
     const { data: salesNull } = await supabase.from(table).select("*").is('entry_date', null).gte('created_at', startPrevStr);
@@ -58,7 +61,20 @@ async function getWeeklySummary() {
 
       if (table === 'publishing_ledger') {
         rev = Number(s.price || 0);
-        cop = (catMap[s.description] || 0) * (Number(s.qty) || 0);
+        const qty = Number(s.qty) || 0;
+        const unitCop = catMap[s.description] || 0;
+        cop = unitCop * qty;
+
+        if (dStr >= startStr) {
+          const name = s.description || "Other";
+          if (!itemMap[name]) {
+            itemMap[name] = { quantity: 0, revenue: 0, cop: 0 };
+          }
+          itemMap[name].quantity += qty;
+          itemMap[name].revenue += rev;
+          itemMap[name].cop += cop;
+          totalUnitsSold += qty;
+        }
       } else if (table === 'digital_prints_ledger') {
         rev = Number(s.price || 0);
       } else {
@@ -116,7 +132,31 @@ async function getWeeklySummary() {
     else if (dStr >= startPrevStr && dStr <= endPrevStr) prevInc += amt;
   });
 
-  return { totalRev, totalCop, totalExp, totalInc, prevRev, prevCop, prevExp, prevInc, startStr, chartData };
+  const inventoryItemSummary = Object.entries(itemMap)
+    .map(([name, data]) => ({
+      name,
+      quantity: data.quantity,
+      revenue: data.revenue,
+      cop: data.cop,
+      profit: data.revenue - data.cop,
+      unitCop: catMap[name] ?? (data.quantity > 0 ? data.cop / data.quantity : 0)
+    }))
+    .sort((a, b) => b.quantity - a.quantity);
+
+  return { 
+    totalRev, 
+    totalCop, 
+    totalExp, 
+    totalInc, 
+    prevRev, 
+    prevCop, 
+    prevExp, 
+    prevInc, 
+    startStr, 
+    chartData,
+    inventoryItemSummary,
+    totalUnitsSold
+  };
 }
 
 export default async function AdminPage() {
@@ -233,6 +273,96 @@ export default async function AdminPage() {
 
         <div className="mb-6 h-[400px]">
           <DashboardChart data={summary.chartData} />
+        </div>
+
+        {/* Inventory Items Summary */}
+        <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-gray-100 mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-gray-100">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xl">📦</span>
+                <h3 className="text-xl font-bold text-gray-900 tracking-tight">Inventory Items Summary</h3>
+              </div>
+              <p className="text-sm text-gray-500 mt-1">
+                Publishing catalogue units moved and performance this week
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-primary/10 text-primary border border-primary/20 shadow-xs">
+                <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+                {summary.totalUnitsSold.toLocaleString()} Total Units Sold
+              </span>
+            </div>
+          </div>
+
+          {summary.inventoryItemSummary.length === 0 ? (
+            <div className="text-center py-12 text-gray-400 font-medium">
+              <p className="text-3xl mb-2">📦</p>
+              <p>No inventory items sold this week.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {summary.inventoryItemSummary.map((item, idx) => {
+                const sharePct = summary.totalUnitsSold > 0 ? (item.quantity / summary.totalUnitsSold) * 100 : 0;
+                return (
+                  <div key={item.name} className="p-4 rounded-xl bg-gray-50/70 border border-gray-100 hover:bg-gray-50 transition-colors">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2.5">
+                        <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold ${
+                          idx === 0 
+                            ? "bg-amber-100 text-amber-800 border border-amber-200" 
+                            : idx === 1 
+                            ? "bg-slate-200 text-slate-700" 
+                            : idx === 2 
+                            ? "bg-amber-50 text-amber-700" 
+                            : "bg-gray-100 text-gray-500"
+                        }`}>
+                          #{idx + 1}
+                        </span>
+                        <span className="font-bold text-gray-900 text-sm sm:text-base">{item.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs sm:text-sm">
+                        <span className="font-bold px-2.5 py-1 rounded-lg bg-white border border-gray-200 text-gray-800 shadow-xs">
+                          {item.quantity.toLocaleString()} {item.quantity === 1 ? 'unit' : 'units'}
+                        </span>
+                        <span className="font-semibold text-gray-500">
+                          {sharePct.toFixed(1)}% of volume
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full bg-gray-200/80 rounded-full h-2.5 overflow-hidden mb-3">
+                      <div 
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          idx === 0 ? "bg-primary" : idx === 1 ? "bg-brand-blue-100" : "bg-primary/70"
+                        }`}
+                        style={{ width: `${Math.max(sharePct, 2)}%` }}
+                      ></div>
+                    </div>
+
+                    {/* Financial Metrics */}
+                    <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-200/60 text-xs">
+                      <div>
+                        <span className="text-gray-400 block uppercase tracking-wider text-[10px] font-semibold">Revenue</span>
+                        <span className="font-bold text-gray-900">₦{item.revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block uppercase tracking-wider text-[10px] font-semibold">Total COP</span>
+                        <span className="font-bold text-amber-700">₦{item.cop.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="text-right sm:text-left">
+                        <span className="text-gray-400 block uppercase tracking-wider text-[10px] font-semibold">Profit</span>
+                        <span className={`font-bold ${item.profit >= 0 ? "text-green-600" : "text-red-600"}`}>
+                          ₦{item.profit.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <GlobalExportButton />

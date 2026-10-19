@@ -7,12 +7,14 @@ export default function SummaryPanel({
   rows, 
   copRows, 
   stockLogs = [],
+  catalogue,
   onClose,
   title
 }: { 
   rows: any[]; 
   copRows: any[]; 
   stockLogs?: any[];
+  catalogue?: Record<string, { cop: number }> | Record<string, any>;
   onClose: () => void;
   title: string;
 }) {
@@ -50,6 +52,44 @@ export default function SummaryPanel({
     });
   }, [stockLogs, from, to]);
 
+  const itemSummary = useMemo(() => {
+    const map: Record<string, { name: string; quantity: number; revenue: number; cop: number; unitCop: number }> = {};
+    let totalUnits = 0;
+
+    inRange.forEach((r: any) => {
+      const name = r.description || "Other";
+      const qty = Number(r.qty) || 0;
+      const isPublishingOrPrints = title.toLowerCase().includes("publishing") || title.toLowerCase().includes("digital prints");
+      const rev = isPublishingOrPrints ? Number(r.price || 0) : Number(r.price || 0) * (qty || 1);
+
+      let unitCop = 0;
+      if (catalogue && catalogue[name]) {
+        unitCop = typeof catalogue[name] === "object" ? Number(catalogue[name].cop || 0) : Number(catalogue[name] || 0);
+      }
+      const cop = unitCop * qty;
+
+      if (!map[name]) {
+        map[name] = { name, quantity: 0, revenue: 0, cop: 0, unitCop };
+      }
+      map[name].quantity += qty;
+      map[name].revenue += rev;
+      map[name].cop += cop;
+      totalUnits += qty;
+    });
+
+    return Object.values(map)
+      .map(item => ({
+        ...item,
+        profit: item.revenue - item.cop,
+        sharePct: totalUnits > 0 ? (item.quantity / totalUnits) * 100 : 0
+      }))
+      .sort((a, b) => b.quantity - a.quantity);
+  }, [inRange, catalogue, title]);
+
+  const totalUnitsSold = useMemo(() => {
+    return itemSummary.reduce((sum, item) => sum + item.quantity, 0);
+  }, [itemSummary]);
+
   const byDate = useMemo(() => {
     const map: Record<string, any[]> = {};
     inRange.forEach(r => { 
@@ -81,6 +121,9 @@ export default function SummaryPanel({
       grossProfit,
       copRows: copInRange,
       stockLogs: stockInRange,
+      itemSummary,
+      totalUnitsSold,
+      catalogue,
       from,
       to,
       title
@@ -137,6 +180,123 @@ export default function SummaryPanel({
               <div className={`text-2xl font-bold ${grossProfit >= 0 ? "text-green-600" : "text-red-600"}`}>₦{grossProfit.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
             </div>
           </div>
+
+          {/* Inventory Items Summary Table */}
+          {itemSummary.length > 0 && (
+            <div className="mb-8 rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+              <div className="bg-gray-100 px-5 py-3.5 border-b border-gray-200 flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">📦</span>
+                  <h3 className="font-bold text-gray-800">Inventory Items Summary</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-white border border-gray-200 text-gray-700 shadow-xs">
+                    {totalUnitsSold.toLocaleString()} total units sold
+                  </span>
+                  <span className="text-xs text-gray-500 font-medium">
+                    ({inRange.length > 0 ? (totalUnitsSold / inRange.length).toFixed(1) : "0"} avg/tx)
+                  </span>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto bg-white">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Item / Service</th>
+                      <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Quantity Sold</th>
+                      <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Unit COP (₦)</th>
+                      <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Total COP (₦)</th>
+                      <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Total Revenue (₦)</th>
+                      <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Gross Profit (₦)</th>
+                      <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Share of Units (%)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {itemSummary.map((item, idx) => {
+                      const isTopPerformer = idx === 0 && itemSummary.length > 1;
+                      return (
+                        <tr key={item.name} className={`hover:bg-gray-50 transition-colors ${isTopPerformer ? "bg-amber-50/25" : ""}`}>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900 flex items-center gap-2">
+                            <span className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold ${
+                              idx === 0 
+                                ? "bg-amber-100 text-amber-800" 
+                                : idx === 1 
+                                ? "bg-slate-100 text-slate-700" 
+                                : "bg-gray-50 text-gray-400"
+                            }`}>
+                              #{idx + 1}
+                            </span>
+                            <span>{item.name}</span>
+                            {isTopPerformer && (
+                              <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded border border-amber-200">
+                                Top Seller
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right font-bold text-gray-900">
+                            {item.quantity.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right text-gray-600">
+                            {item.unitCop > 0 ? item.unitCop.toLocaleString('en-US', { minimumFractionDigits: 2 }) : "—"}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right font-medium text-amber-700">
+                            {item.cop.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right font-bold text-primary">
+                            {item.revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className={`px-4 py-3 text-sm text-right font-bold ${item.profit >= 0 ? "text-green-600" : "text-red-600"}`}>
+                            {item.profit.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right text-gray-600">
+                            <div className="flex items-center justify-end gap-2">
+                              <span>{item.sharePct.toFixed(1)}%</span>
+                              <div className="w-12 bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                                <div className="bg-primary h-full rounded-full" style={{ width: `${item.sharePct}%` }}></div>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-gray-50 border-t-2 border-gray-200 font-bold text-xs uppercase text-gray-700">
+                      <td className="px-4 py-3">Total / Summary</td>
+                      <td className="px-4 py-3 text-right font-extrabold text-sm text-gray-900">
+                        {totalUnitsSold.toLocaleString()} units
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-400">—</td>
+                      <td className="px-4 py-3 text-right font-bold text-amber-700 text-sm">
+                        ₦{itemSummary.reduce((s, it) => s + it.cop, 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-primary text-sm">
+                        ₦{itemSummary.reduce((s, it) => s + it.revenue, 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className={`px-4 py-3 text-right font-bold text-sm ${
+                        itemSummary.reduce((s, it) => s + it.profit, 0) >= 0 ? "text-green-600" : "text-red-600"
+                      }`}>
+                        ₦{itemSummary.reduce((s, it) => s + it.profit, 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-4 py-3 text-right">100.0%</td>
+                    </tr>
+                    <tr className="bg-gray-50/50 text-[11px] text-gray-500 font-medium">
+                      <td colSpan={7} className="px-4 py-2 border-t border-gray-100">
+                        <span>Average volume per transaction: </span>
+                        <span className="font-bold text-gray-800">
+                          {inRange.length > 0 ? (totalUnitsSold / inRange.length).toFixed(1) : "0"} units
+                        </span>
+                        <span className="mx-2">·</span>
+                        <span>Catalogue items active: </span>
+                        <span className="font-bold text-gray-800">{itemSummary.length}</span>
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* By Date Blocks */}
           {byDate.length === 0 && (
