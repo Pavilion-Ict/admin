@@ -66,6 +66,7 @@ export default function GlobalExportButton() {
           netProfit: grossProfit,
           copRows: copInRange,
           stockLogs: stockLogsInRange,
+          catalogue: key === 'publishing_ledger' ? (data.catalogue || {}) : undefined,
         };
       }).filter(l => l.inRange.length > 0 || l.copRows.length > 0 || l.stockLogs.length > 0);
 

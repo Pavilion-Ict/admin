@@ -47,6 +47,34 @@ export default function PublishingLedgerDashboard({
   const [entryToDelete, setEntryToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Inventory Summary Date Range States (selectable like other summary)
+  const startOfWeekStr = useMemo(() => {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const d = new Date(now);
+    d.setDate(diff);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const dt = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${dt}`;
+  }, []);
+
+  const allRowDates = useMemo(() => {
+    const dates = (initialRows || [])
+      .map((r: any) => r.entry_date || (r.created_at ? r.created_at.split('T')[0] : ''))
+      .filter(Boolean)
+      .sort();
+    return {
+      min: dates[0] || todayStr,
+      max: dates[dates.length - 1] || todayStr
+    };
+  }, [initialRows, todayStr]);
+
+  const [invFrom, setInvFrom] = useState(startOfWeekStr);
+  const [invTo, setInvTo] = useState(todayStr);
+  const [invPreset, setInvPreset] = useState<'today' | 'week' | 'month' | 'all' | 'custom'>('week');
+
   // Form States
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
   const [clientName, setClientName] = useState("");
@@ -142,9 +170,48 @@ export default function PublishingLedgerDashboard({
       cop += unitCop * (Number(r.qty) || 0);
     });
 
-
     return { revenue, cop, exp: inlineExp, inc: 0 };
   }, [filteredEntries, catalogue]);
+
+  const inventorySummary = useMemo(() => {
+    const map: Record<string, { name: string; quantity: number; revenue: number; cop: number; unitCop: number }> = {};
+    let totalUnits = 0;
+
+    const inRange = (initialRows || []).filter((r: any) => {
+      const d = r.entry_date || (r.created_at ? r.created_at.split('T')[0] : '');
+      if (!d) return false;
+      if (invFrom && d < invFrom) return false;
+      if (invTo && d > invTo) return false;
+      return true;
+    });
+
+    inRange.forEach((r: any) => {
+      const name = r.description || "Other";
+      const qty = Number(r.qty) || 0;
+      const rev = Number(r.price || 0);
+      const unitCop = (catalogue[name] || { cop: 0 }).cop;
+      const cop = unitCop * qty;
+      if (!map[name]) map[name] = { name, quantity: 0, revenue: 0, cop: 0, unitCop };
+      map[name].quantity += qty;
+      map[name].revenue += rev;
+      map[name].cop += cop;
+      totalUnits += qty;
+    });
+
+    const items = Object.values(map)
+      .map(item => ({ 
+        ...item, 
+        profit: item.revenue - item.cop, 
+        sharePct: totalUnits > 0 ? (item.quantity / totalUnits) * 100 : 0 
+      }))
+      .sort((a, b) => b.quantity - a.quantity);
+
+    const totalRev = items.reduce((s, it) => s + it.revenue, 0);
+    const totalCop = items.reduce((s, it) => s + it.cop, 0);
+    const totalProfit = items.reduce((s, it) => s + it.profit, 0);
+
+    return { items, totalUnits, totalRev, totalCop, totalProfit, entryCount: inRange.length };
+  }, [initialRows, catalogue, invFrom, invTo]);
 
   const grossProfit = totals.revenue - totals.cop;
   // Net profit handled globally
@@ -373,7 +440,7 @@ export default function PublishingLedgerDashboard({
       </div>
       
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white border-l-4 border-primary p-5 rounded-2xl shadow-sm flex flex-col justify-center">
           <h3 className="text-gray-500 font-bold text-xs tracking-wider uppercase mb-1">Revenue</h3>
           <p className="text-2xl font-bold text-gray-900">₦{totals.revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
@@ -392,6 +459,201 @@ export default function PublishingLedgerDashboard({
           <h3 className="text-gray-500 font-bold text-xs tracking-wider uppercase mb-1">Entries</h3>
           <p className="text-2xl font-bold text-gray-600">{filteredEntries.length}</p>
         </div>
+      </div>
+
+      {/* Inventory Items Summary (Card-based matching Home Page, Date Selectable like Summary Report) */}
+      <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-gray-100 mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-gray-100">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xl">📦</span>
+              <h3 className="text-xl font-bold text-gray-900 tracking-tight">Inventory Items Summary</h3>
+            </div>
+            <p className="text-sm text-gray-500 mt-1">
+              Publishing catalogue units moved and performance
+              {invFrom && invTo && (
+                <span className="font-semibold text-gray-700">
+                  {invFrom === invTo ? ` on ${new Date(invFrom + 'T00:00:00').toLocaleDateString()}` : ` (${new Date(invFrom + 'T00:00:00').toLocaleDateString()} → ${new Date(invTo + 'T00:00:00').toLocaleDateString()})`}
+                </span>
+              )}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-primary/10 text-primary border border-primary/20 shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+              {inventorySummary.totalUnits.toLocaleString()} Total Units Sold
+            </span>
+          </div>
+        </div>
+
+        {/* Date Selector (Like Other Summary) */}
+        <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-end gap-3 bg-gray-50 p-4 rounded-xl border border-gray-100 mb-6">
+          <div className="w-full sm:w-auto">
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">From Date</label>
+            <input 
+              type="date" 
+              value={invFrom} 
+              onChange={e => { setInvFrom(e.target.value); setInvPreset('custom'); }} 
+              className="block w-full px-3 py-1.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm font-medium" 
+            />
+          </div>
+          <div className="w-full sm:w-auto">
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">To Date</label>
+            <input 
+              type="date" 
+              value={invTo} 
+              onChange={e => { setInvTo(e.target.value); setInvPreset('custom'); }} 
+              className="block w-full px-3 py-1.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm font-medium" 
+            />
+          </div>
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto sm:ml-auto mt-2 sm:mt-0">
+            <button 
+              type="button"
+              onClick={() => { setInvFrom(todayStr); setInvTo(todayStr); setInvPreset('today'); }} 
+              className={`px-3 py-1.5 border rounded-lg text-xs font-bold transition-colors ${
+                invPreset === 'today' 
+                  ? 'bg-primary text-white border-primary shadow-xs' 
+                  : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Today
+            </button>
+            <button 
+              type="button"
+              onClick={() => { setInvFrom(startOfWeekStr); setInvTo(todayStr); setInvPreset('week'); }} 
+              className={`px-3 py-1.5 border rounded-lg text-xs font-bold transition-colors ${
+                invPreset === 'week' 
+                  ? 'bg-primary text-white border-primary shadow-xs' 
+                  : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              This Week
+            </button>
+            <button 
+              type="button"
+              onClick={() => {
+                const now = new Date();
+                const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                const year = firstOfMonth.getFullYear();
+                const month = String(firstOfMonth.getMonth() + 1).padStart(2, '0');
+                setInvFrom(`${year}-${month}-01`);
+                setInvTo(todayStr);
+                setInvPreset('month');
+              }} 
+              className={`px-3 py-1.5 border rounded-lg text-xs font-bold transition-colors ${
+                invPreset === 'month' 
+                  ? 'bg-primary text-white border-primary shadow-xs' 
+                  : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              This Month
+            </button>
+            <button 
+              type="button"
+              onClick={() => { setInvFrom(allRowDates.min); setInvTo(allRowDates.max); setInvPreset('all'); }} 
+              className={`px-3 py-1.5 border rounded-lg text-xs font-bold transition-colors ${
+                invPreset === 'all' 
+                  ? 'bg-primary text-white border-primary shadow-xs' 
+                  : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              All Time
+            </button>
+            {dateFilter && (
+              <button 
+                type="button"
+                onClick={() => { setInvFrom(dateFilter); setInvTo(dateFilter); setInvPreset('custom'); }} 
+                className="px-3 py-1.5 bg-white border border-dashed border-gray-300 text-gray-600 rounded-lg text-xs font-bold hover:bg-gray-100 transition-colors"
+                title="Match current page date filter"
+              >
+                Match Page Date
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Content: Empty state or Cards list matching home page */}
+        {inventorySummary.items.length === 0 ? (
+          <div className="text-center py-12 text-gray-400 font-medium bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+            <p className="text-3xl mb-2">📦</p>
+            <p className="text-gray-600 font-semibold">No inventory items sold for this date selection.</p>
+            <p className="text-xs text-gray-400 mt-1">Try switching to &quot;This Week&quot; or &quot;All Time&quot; above to see items.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {inventorySummary.items.map((item, idx) => {
+              const sharePct = inventorySummary.totalUnits > 0 ? (item.quantity / inventorySummary.totalUnits) * 100 : 0;
+              return (
+                <div key={item.name} className="p-4 rounded-xl bg-gray-50/70 border border-gray-100 hover:bg-gray-50 transition-colors">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold ${
+                        idx === 0 
+                          ? "bg-amber-100 text-amber-800 border border-amber-200" 
+                          : idx === 1 
+                          ? "bg-slate-200 text-slate-700" 
+                          : idx === 2 
+                          ? "bg-amber-50 text-amber-700" 
+                          : "bg-gray-100 text-gray-500"
+                      }`}>
+                        #{idx + 1}
+                      </span>
+                      <span className="font-bold text-gray-900 text-sm sm:text-base">{item.name}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs sm:text-sm">
+                      <span className="font-bold px-2.5 py-1 rounded-lg bg-white border border-gray-200 text-gray-800 shadow-xs">
+                        {item.quantity.toLocaleString()} {item.quantity === 1 ? 'unit' : 'units'}
+                      </span>
+                      <span className="font-semibold text-gray-500">
+                        {sharePct.toFixed(1)}% of volume
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="w-full bg-gray-200/80 rounded-full h-2.5 overflow-hidden mb-3">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        idx === 0 ? "bg-primary" : idx === 1 ? "bg-brand-blue-100" : "bg-primary/70"
+                      }`}
+                      style={{ width: `${Math.max(sharePct, 2)}%` }}
+                    ></div>
+                  </div>
+
+                  {/* Financial Metrics */}
+                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-200/60 text-xs">
+                    <div>
+                      <span className="text-gray-400 block uppercase tracking-wider text-[10px] font-semibold">Revenue</span>
+                      <span className="font-bold text-gray-900">₦{item.revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400 block uppercase tracking-wider text-[10px] font-semibold">Total COP</span>
+                      <span className="font-bold text-amber-700">₦{item.cop.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="text-right sm:text-left">
+                      <span className="text-gray-400 block uppercase tracking-wider text-[10px] font-semibold">Profit</span>
+                      <span className={`font-bold ${item.profit >= 0 ? "text-green-600" : "text-red-600"}`}>
+                        ₦{item.profit.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Totals Summary Footer */}
+            <div className="pt-4 mt-2 border-t border-gray-200/60 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs">
+              <span className="text-gray-500 font-medium">
+                Showing <strong>{inventorySummary.items.length}</strong> catalog items ({inventorySummary.totalUnits.toLocaleString()} units across {inventorySummary.entryCount} transactions)
+              </span>
+              <div className="flex items-center gap-4 font-bold">
+                <span className="text-gray-700">Total Rev: <span className="text-primary">₦{inventorySummary.totalRev.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></span>
+                <span className="text-gray-700">Total COP: <span className="text-amber-700">₦{inventorySummary.totalCop.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></span>
+                <span className="text-gray-700">Profit: <span className={inventorySummary.totalProfit >= 0 ? "text-green-600" : "text-red-600"}>₦{inventorySummary.totalProfit.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Forms Section */}

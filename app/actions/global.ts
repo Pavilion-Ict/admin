@@ -73,6 +73,7 @@ export async function getGlobalSummaryData(from: string, to: string) {
     allCops,
     allExpenses,
     allIncome,
-    allStockLogs
+    allStockLogs,
+    catalogue,
   };
 }

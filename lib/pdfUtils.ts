@@ -491,6 +491,75 @@ export function exportSummaryPDF({
 
 export function exportGlobalSummaryPDF({ ledgers, allExpenses, allIncome, from, to }: any) {
   const ledgersHtml = ledgers.map((l: any) => {
+    const isNoMultiply = l.title.toLowerCase().includes('publishing') || l.title.toLowerCase().includes('digital prints');
+
+    // Build per-item inventory summary for this ledger
+    const itemMap: Record<string, { name: string; quantity: number; revenue: number; cop: number; unitCop: number }> = {};
+    let totalUnits = 0;
+    l.inRange.forEach((r: any) => {
+      const name = r.description || 'Other';
+      const qty = Number(r.qty) || 0;
+      const rev = isNoMultiply ? Number(r.price || 0) : Number(r.price || 0) * (qty || 1);
+      const unitCop = l.catalogue && l.catalogue[name]
+        ? (typeof l.catalogue[name] === 'object' ? fmtN(l.catalogue[name].cop) : fmtN(l.catalogue[name]))
+        : 0;
+      const cop = unitCop * qty;
+      if (!itemMap[name]) itemMap[name] = { name, quantity: 0, revenue: 0, cop: 0, unitCop };
+      itemMap[name].quantity += qty;
+      itemMap[name].revenue += rev;
+      itemMap[name].cop += cop;
+      totalUnits += qty;
+    });
+    const ledgerItems = Object.values(itemMap)
+      .map(it => ({ ...it, profit: it.revenue - it.cop, sharePct: totalUnits > 0 ? (it.quantity / totalUnits) * 100 : 0 }))
+      .sort((a, b) => b.quantity - a.quantity);
+    const totalItemCop = ledgerItems.reduce((s, it) => s + it.cop, 0);
+    const totalItemRev = ledgerItems.reduce((s, it) => s + it.revenue, 0);
+    const totalItemProfit = ledgerItems.reduce((s, it) => s + it.profit, 0);
+
+    const inventoryHtml = ledgerItems.length > 0 ? `
+      <div style="margin-bottom: 16px; page-break-inside: avoid;">
+        <h3 style="font-size: 10px; text-transform: uppercase; margin: 8px 0 4px; color: #666; border-bottom: 1px solid #ccc; padding-bottom: 2px;">📦 Inventory Items Summary</h3>
+        <table style="width:100%; border-collapse: collapse; margin-bottom: 10px; font-size: 9.5px;">
+          <thead>
+            <tr style="background:#1a2535;color:#fff;">
+              <th style="padding:4px 6px;text-align:left;">Item / Service</th>
+              <th style="padding:4px 6px;text-align:right;">Qty Sold</th>
+              <th style="padding:4px 6px;text-align:right;">Share (%)</th>
+              <th style="padding:4px 6px;text-align:right;">Unit COP</th>
+              <th style="padding:4px 6px;text-align:right;">Total COP</th>
+              <th style="padding:4px 6px;text-align:right;">Revenue</th>
+              <th style="padding:4px 6px;text-align:right;">Gross Profit</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${ledgerItems.map((it: any, idx: number) => `
+              <tr style="${idx % 2 === 0 ? 'background:#fff;' : 'background:#fafafa;'}">
+                <td style="padding:3px 6px;border-bottom:1px solid #eee;font-weight:500;">${it.name}</td>
+                <td style="padding:3px 6px;border-bottom:1px solid #eee;text-align:right;font-weight:bold;">${fmt(it.quantity)}</td>
+                <td style="padding:3px 6px;border-bottom:1px solid #eee;text-align:right;">${it.sharePct.toFixed(1)}%</td>
+                <td style="padding:3px 6px;border-bottom:1px solid #eee;text-align:right;">${it.unitCop > 0 ? fmt(it.unitCop) : '—'}</td>
+                <td style="padding:3px 6px;border-bottom:1px solid #eee;text-align:right;color:#c07800;">₦${fmt(it.cop)}</td>
+                <td style="padding:3px 6px;border-bottom:1px solid #eee;text-align:right;font-weight:bold;">₦${fmt(it.revenue)}</td>
+                <td style="padding:3px 6px;border-bottom:1px solid #eee;text-align:right;font-weight:bold;color:${it.profit >= 0 ? '#166534' : '#991b1b'};">₦${fmt(it.profit)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+          <tfoot>
+            <tr style="background:#f0f0f0;font-weight:bold;border-top:2px solid #bbb;">
+              <td style="padding:3px 6px;">Total</td>
+              <td style="padding:3px 6px;text-align:right;">${fmt(totalUnits)}</td>
+              <td style="padding:3px 6px;text-align:right;">100.0%</td>
+              <td style="padding:3px 6px;text-align:right;">—</td>
+              <td style="padding:3px 6px;text-align:right;color:#c07800;">₦${fmt(totalItemCop)}</td>
+              <td style="padding:3px 6px;text-align:right;">₦${fmt(totalItemRev)}</td>
+              <td style="padding:3px 6px;text-align:right;color:${totalItemProfit >= 0 ? '#166534' : '#991b1b'};">₦${fmt(totalItemProfit)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    ` : '';
+
     return `
     <div style="margin-bottom: 24px; page-break-inside: avoid;">
       <h2 style="font-size:18px; font-weight: 800; text-align: center; text-transform:uppercase; margin-bottom: 16px; border-bottom: 2px solid #1a2535; padding-bottom: 8px; margin-top: 16px;">
@@ -504,9 +573,10 @@ export function exportGlobalSummaryPDF({ ledgers, allExpenses, allIncome, from, 
       <div style="font-size: 11px; color: #555; margin-bottom: 8px;">
         ${l.inRange.length} sales · ${l.copRows.length} COP entries ${l.stockLogs?.length ? `· ${l.stockLogs.length} stock logs` : ''}
       </div>
+
+      ${inventoryHtml}
       
       ${l.byDate.map(([date, dRows]: any) => {
-        const isNoMultiply = l.title.toLowerCase().includes('publishing') || l.title.toLowerCase().includes('digital prints');
         const rev = dRows.reduce((s: any, r: any) => s + (isNoMultiply ? fmtN(r.price) : fmtN(r.price) * fmtN(r.qty)), 0);
         const dayStock = l.stockLogs?.find((s: any) => (s.date || s.created_at?.split('T')[0]) === date);
 
